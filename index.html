@@ -1,0 +1,4724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存及订单状态管理工具</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        header h1 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        header p {
+            font-size: 0.95rem;
+            opacity: 0.9;
+            max-width: 800px;
+        }
+        
+        .archive-description {
+            margin-top: 5px;
+            font-size: 0.85rem;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .stat-card.settings {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+        }
+        
+        .stat-card.settings:hover {
+            background: linear-gradient(135deg, #5b4fdf 0%, #8d83f5 100%);
+        }
+        
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .stat-card.settings .stat-icon {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .stat-info h3 {
+            font-size: 0.9rem;
+            color: #777;
+            margin-bottom: 4px;
+        }
+        
+        .stat-card.settings .stat-info h3 {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .stat-value {
+            font-size: 1.7rem;
+            font-weight: 700;
+        }
+        
+        .stat-card.settings .stat-value {
+            font-size: 1.5rem;
+            opacity: 0.95;
+        }
+        
+        /* 设置模态框样式 */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .settings-modal.active {
+            display: flex;
+        }
+        
+        .settings-content {
+            background: white;
+            width: 100%;
+            max-width: 800px;
+            max-height: 85vh;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .settings-header {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-header h2 {
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .settings-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+        
+        .settings-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .settings-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+        }
+        
+        .settings-section {
+            margin-bottom: 30px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .settings-section-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-section-header h3 {
+            font-size: 1.1rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .settings-section-body {
+            padding: 20px;
+        }
+        
+        .settings-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            min-height: 50px;
+        }
+        
+        .settings-tag {
+            background: #eef2f7;
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .settings-tag .remove-tag {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 0.9rem;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+        
+        .settings-tag .remove-tag:hover {
+            background: rgba(231, 76, 60, 0.1);
+        }
+        
+        .settings-input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .settings-input-group input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .settings-input-group input:focus {
+            outline: none;
+            border-color: #6c5ce7;
+        }
+        
+        .settings-input-group .btn {
+            padding: 10px 20px;
+            white-space: nowrap;
+        }
+        
+        .settings-footer {
+            padding: 20px 25px;
+            background: #f8f9fa;
+            border-top: 1px solid #eee;
+            text-align: right;
+        }
+        
+        /* 其余原有样式保持不变，这里为了节省空间省略了大量重复样式 */
+        .archive-section {
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .archive-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .archive-controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .archive-status {
+            margin-top: 15px;
+            padding: 12px 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        
+        .archive-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .archive-date {
+            font-size: 0.85rem;
+            color: #777;
+            margin-top: 5px;
+        }
+        
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .tab {
+            padding: 18px 30px;
+            cursor: pointer;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid #3498db;
+            color: #3498db;
+            background-color: #f0f7ff;
+        }
+        
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .section-header h2 {
+            font-size: 1.8rem;
+            color: #2c3e50;
+        }
+        
+        .section-header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-success {
+            background-color: #2ecc71;
+        }
+        
+        .btn-success:hover {
+            background-color: #27ae60;
+        }
+        
+        .btn-warning {
+            background-color: #f39c12;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d68910;
+        }
+        
+        .btn-info {
+            background-color: #17a2b8;
+        }
+        
+        .btn-info:hover {
+            background-color: #138496;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input, 
+        .form-group select {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus, 
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .search-container {
+            position: relative;
+        }
+        
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 5px 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .search-result-item:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .search-result-item.selected {
+            background-color: #e3f2fd;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        table th {
+            background-color: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+        }
+        
+        table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background-color: #fef9e7;
+            color: #f39c12;
+        }
+        
+        .status-completed {
+            background-color: #e8f6f3;
+            color: #27ae60;
+        }
+        
+        .status-partial {
+            background-color: #ebf5fb;
+            color: #3498db;
+        }
+        
+        .status-cancelled {
+            background-color: #f2f2f2;
+            color: #95a5a6;
+        }
+        
+        .status-partial-completed {
+            background-color: #e8f6f3;
+            color: #2ecc71;
+        }
+        
+        .status-cancelled-completed {
+            background-color: #f2f2f2;
+            color: #7f8c8d;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border: none;
+            transition: all 0.2s;
+        }
+        
+        .action-btn.edit {
+            background-color: #f0f7ff;
+            color: #3498db;
+        }
+        
+        .action-btn.delete {
+            background-color: #fdedec;
+            color: #e74c3c;
+        }
+        
+        .action-btn.complete {
+            background-color: #e8f6f3;
+            color: #27ae60;
+        }
+        
+        .action-btn.download {
+            background-color: #e8f6f3;
+            color: #27ae60;
+        }
+        
+        .action-btn.download:hover {
+            background-color: #d1f2eb;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background-color: #2ecc71;
+            color: white;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast.info {
+            background-color: #3498db;
+        }
+        
+        .toast.warning {
+            background-color: #f39c12;
+        }
+        
+        .toast.error {
+            background-color: #e74c3c;
+        }
+        
+        .download-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100%);
+            background: #2ecc71;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10001;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .download-notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .download-notification.warning {
+            background: #f39c12;
+        }
+        
+        .download-notification a {
+            color: white;
+            text-decoration: underline;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+            margin-top: 40px;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            color: #777;
+            font-size: 1.1rem;
+        }
+        
+        .empty-message i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #ddd;
+        }
+        
+        /* 状态一览页面样式 */
+        .status-search-container {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .status-search-box {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        
+        .status-search-input {
+            flex: 1;
+        }
+        
+        .status-search-input label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .status-search-input input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .status-search-input input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .product-status-summary {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .product-status-summary h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-overview-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .status-overview-card h4 {
+            color: #555;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+        
+        .status-overview-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        
+        .status-overview-card.inventory .status-overview-value {
+            color: #27ae60;
+        }
+        
+        .status-overview-card.pending .status-overview-value {
+            color: #f39c12;
+        }
+        
+        .status-overview-card.ordered .status-overview-value {
+            color: #3498db;
+        }
+        
+        .status-overview-card.shipped .status-overview-value {
+            color: #9b59b6;
+        }
+        
+        .status-detail-section {
+            margin-top: 40px;
+        }
+        
+        .status-detail-section h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        .status-detail-table th {
+            background-color: #f8f9fa;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .status-detail-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #777;
+            font-size: 1.1rem;
+        }
+        
+        .no-results i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #ddd;
+        }
+        
+        /* 新增分页和搜索样式 */
+        .table-search-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+        
+        .table-search-box {
+            flex: 1;
+            max-width: 500px;
+        }
+        
+        .table-search-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .table-search-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .table-container {
+            max-height: 700px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .table-container table {
+            margin-top: 0;
+        }
+        
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        
+        .pagination-info {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .pagination-btn {
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .pagination-btn:hover {
+            background-color: #e9ecef;
+        }
+        
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination-pages {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .pagination-page {
+            min-width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .pagination-page.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .pagination-page:hover:not(.active) {
+            background-color: #f8f9fa;
+        }
+        
+        .clear-search-btn {
+            margin-left: 10px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .clear-search-btn:hover {
+            background-color: #e9ecef;
+        }
+        
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .archive-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .status-search-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .status-overview-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .table-search-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .table-search-box {
+                max-width: 100%;
+            }
+            
+            .pagination-container {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+        }
+        
+        /* 新增: 设置选项样式 */
+        .settings-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .settings-options {
+                grid-template-columns: 1fr;
+            }
+            
+            .settings-input-group {
+                flex-direction: column;
+            }
+            
+            .stat-card {
+                padding: 15px;
+            }
+            
+            .stat-icon {
+                width: 45px;
+                height: 45px;
+                margin-right: 12px;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            header {
+                padding: 12px 15px;
+            }
+            
+            header h1 {
+                font-size: 1.1rem;
+            }
+            
+            header p {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-warehouse"></i> 库存及订单状态管理工具</h1>
+            <p>管理您的订货、到货、出货流程，实时跟踪库存状态和未到货订单</p>
+        </header>
+        
+        <div class="dashboard">
+            <div class="stat-card">
+                <div class="stat-icon" style="background-color: #e8f6f3; color: #27ae60;">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>当前库存商品数</h3>
+                    <div class="stat-value" id="totalItems">0</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon" style="background-color: #fef9e7; color: #f39c12;">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>未到货订单</h3>
+                    <div class="stat-value" id="pendingOrders">0</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon" style="background-color: #ebf5fb; color: #3498db;">
+                    <i class="fas fa-shipping-fast"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>本月出货量</h3>
+                    <div class="stat-value" id="monthShipments">0</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon" style="background-color: #fdedec; color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>低库存商品</h3>
+                    <div class="stat-value" id="lowStockItems">0</div>
+                </div>
+            </div>
+            
+            <!-- 新增设置卡片 -->
+            <div class="stat-card settings" id="settingsCard">
+                <div class="stat-icon">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>系统设置</h3>
+                    <div class="stat-value">管理</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 设置模态框 -->
+        <div class="settings-modal" id="settingsModal">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <h2><i class="fas fa-cog"></i> 系统设置</h2>
+                    <button class="settings-close" id="closeSettings">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="settings-body">
+                    <div class="settings-options">
+                        <!-- 设置一：商品类别 -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3><i class="fas fa-tags"></i> 商品类别管理</h3>
+                            </div>
+                            <div class="settings-section-body">
+                                <div class="settings-list" id="categoryList">
+                                    <!-- 商品类别将通过JS动态填充 -->
+                                </div>
+                                <div class="settings-input-group">
+                                    <input type="text" id="newCategoryInput" placeholder="输入新的商品类别">
+                                    <button class="btn btn-success" id="addCategoryBtn">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 设置二：存放位置 -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3><i class="fas fa-warehouse"></i> 存放位置管理</h3>
+                            </div>
+                            <div class="settings-section-body">
+                                <div class="settings-list" id="locationList">
+                                    <!-- 存放位置将通过JS动态填充 -->
+                                </div>
+                                <div class="settings-input-group">
+                                    <input type="text" id="newLocationInput" placeholder="输入新的存放位置">
+                                    <button class="btn btn-success" id="addLocationBtn">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 设置三：供应商 -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3><i class="fas fa-truck"></i> 供应商管理</h3>
+                            </div>
+                            <div class="settings-section-body">
+                                <div class="settings-list" id="supplierList">
+                                    <!-- 供应商将通过JS动态填充 -->
+                                </div>
+                                <div class="settings-input-group">
+                                    <input type="text" id="newSupplierInput" placeholder="输入新的供应商">
+                                    <button class="btn btn-success" id="addSupplierBtn">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 设置四：检验员 -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3><i class="fas fa-user-check"></i> 检验员管理</h3>
+                            </div>
+                            <div class="settings-section-body">
+                                <div class="settings-list" id="inspectorList">
+                                    <!-- 检验员将通过JS动态填充 -->
+                                </div>
+                                <div class="settings-input-group">
+                                    <input type="text" id="newInspectorInput" placeholder="输入新的检验员">
+                                    <button class="btn btn-success" id="addInspectorBtn">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 设置五：客户名称 -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3><i class="fas fa-users"></i> 客户名称管理</h3>
+                            </div>
+                            <div class="settings-section-body">
+                                <div class="settings-list" id="customerList">
+                                    <!-- 客户名称将通过JS动态填充 -->
+                                </div>
+                                <div class="settings-input-group">
+                                    <input type="text" id="newCustomerInput" placeholder="输入新的客户名称">
+                                    <button class="btn btn-success" id="addCustomerBtn">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 设置六：出货方式 -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3><i class="fas fa-shipping-fast"></i> 出货方式管理</h3>
+                            </div>
+                            <div class="settings-section-body">
+                                <div class="settings-list" id="shipmentTypeList">
+                                    <!-- 出货方式将通过JS动态填充 -->
+                                </div>
+                                <div class="settings-input-group">
+                                    <input type="text" id="newShipmentTypeInput" placeholder="输入新的出货方式">
+                                    <button class="btn btn-success" id="addShipmentTypeBtn">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-footer">
+                    <button class="btn btn-info" id="saveSettingsBtn">
+                        <i class="fas fa-save"></i> 保存设置
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+<div class="archive-section">
+    <h3><i class="fas fa-archive"></i> 数据存档管理</h3>
+    <div class="archive-controls">
+        <button class="btn btn-success" id="saveArchiveBtn">
+            <i class="fas fa-save"></i> 保存并下载存档
+        </button>
+        <button class="btn" id="loadArchiveBtn">
+            <i class="fas fa-folder-open"></i> 读取存档数据
+        </button>
+        <input type="file" id="archiveFileInput" accept=".json" style="display: none;">
+        <button class="btn btn-warning" id="exportExcelBtn">
+            <i class="fas fa-file-excel"></i> 导出Excel
+        </button>
+        <button class="btn btn-warning" id="exportCsvBtn">
+            <i class="fas fa-file-csv"></i> 导出CSV
+        </button>
+    </div>
+    
+    <div class="archive-status" id="archiveStatus">
+        当前数据版本：<span class="archive-name" id="currentArchiveName">初始版本</span>
+        <div class="archive-date" id="archiveTimestamp">最后保存时间：未保存</div>
+        <div class="archive-description" id="archiveDescription" style="margin-top: 5px; font-size: 0.85rem; color: #666;"></div>
+    </div>
+</div>
+        
+        <div class="tabs">
+            <div class="tab" data-tab="status">状态一览</div>
+            <div class="tab active" data-tab="inventory">库存管理</div>
+            <div class="tab" data-tab="order">订货管理</div>
+            <div class="tab" data-tab="arrival">到货管理</div>
+            <div class="tab" data-tab="shipment">出货管理</div>
+            <div class="tab" data-tab="pending">未到货订单</div>
+        </div>
+        
+        <!-- 状态一览 -->
+        <div id="status" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-search"></i> 状态一览</h2>
+            </div>
+            
+            <div class="status-search-container">
+                <div class="status-search-box">
+                    <div class="status-search-input">
+                        <label for="statusSearch">搜索商品（商品编码、EAN编码或商品名称）</label>
+                        <input type="text" id="statusSearch" placeholder="请输入商品编码、EAN编码或商品名称进行搜索" autocomplete="off">
+                    </div>
+                    <button class="btn" id="statusSearchBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+            
+            <div id="statusResults" style="display: none;">
+                <div class="product-status-summary">
+                    <h3>商品状态总览</h3>
+                    
+                    <div class="status-overview-grid">
+                        <div class="status-overview-card inventory">
+                            <h4>当前库存数量</h4>
+                            <div class="status-overview-value" id="statusInventoryCount">0</div>
+                        </div>
+                        <div class="status-overview-card pending">
+                            <h4>未到货数量</h4>
+                            <div class="status-overview-value" id="statusPendingCount">0</div>
+                        </div>
+                        <div class="status-overview-card ordered">
+                            <h4>累计订货数量</h4>
+                            <div class="status-overview-value" id="statusOrderedCount">0</div>
+                        </div>
+                        <div class="status-overview-card shipped">
+                            <h4>累计出货数量</h4>
+                            <div class="status-overview-value" id="statusShippedCount">0</div>
+                        </div>
+                    </div>
+                    
+                    <table class="status-detail-table">
+                        <thead>
+                            <tr>
+                                <th>商品编码</th>
+                                <th>商品名称</th>
+                                <th>EAN编码</th>
+                                <th>当前库存</th>
+                                <th>未到货数量</th>
+                                <th>累计订货</th>
+                                <th>累计出货</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statusSummaryTable">
+                            <!-- 商品状态总览数据将通过JS动态填充 -->
+                        </tbody>
+                    </table>
+                    
+                    <div class="status-detail-section">
+                        <h4><i class="fas fa-clipboard-list"></i> 订货情况</h4>
+                        <table class="status-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>订货单号</th>
+                                    <th>供应商</th>
+                                    <th>订货日期</th>
+                                    <th>预计到货日期</th>
+                                    <th>订货数量</th>
+                                    <th>已到货数量</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statusOrderTable">
+                                <!-- 订货详情数据将通过JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="status-detail-section">
+                        <h4><i class="fas fa-shipping-fast"></i> 到货情况</h4>
+                        <table class="status-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>到货单号</th>
+                                    <th>到货日期</th>
+                                    <th>到货数量</th>
+                                    <th>质量状态</th>
+                                    <th>检验员</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statusArrivalTable">
+                                <!-- 到货详情数据将通过JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="status-detail-section">
+                        <h4><i class="fas fa-dolly"></i> 出货情况</h4>
+                        <table class="status-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>出货单号</th>
+                                    <th>客户名称</th>
+                                    <th>出货日期</th>
+                                    <th>出货数量</th>
+                                    <th>出货方式</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statusShipmentTable">
+                                <!-- 出货详情数据将通过JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="statusNoResults" class="no-results" style="display: none;">
+                <i class="fas fa-search"></i>
+                <p>暂无搜索结果，请输入商品编码、EAN编码或商品名称进行搜索</p>
+            </div>
+        </div>
+        
+        <!-- 库存管理 -->
+        <div id="inventory" class="tab-content active">
+            <div class="section-header">
+                <h2><i class="fas fa-boxes"></i> 库存管理</h2>
+                <div class="section-header-buttons">
+                    <button class="btn btn-info" id="downloadCsvTemplateBtn">
+                        <i class="fas fa-download"></i> CSV模板
+                    </button>
+                    <button class="btn btn-info" id="importCsvBtn">
+                        <i class="fas fa-upload"></i> CSV导入
+                    </button>
+                    <input type="file" id="csvImportFile" accept=".csv" style="display: none;">
+                    <button class="btn" id="addInventoryBtn"><i class="fas fa-plus"></i> 添加库存商品</button>
+                </div>
+            </div>
+            
+            <div id="inventoryForm" style="display: none;">
+                <h3>添加/编辑库存商品</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inventoryName">商品名称 *</label>
+                        <input type="text" id="inventoryName" placeholder="输入商品名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="inventoryCode">商品编码 *</label>
+                        <input type="text" id="inventoryCode" placeholder="输入商品编码">
+                    </div>
+                    <div class="form-group">
+                        <label for="inventoryean">EAN编码</label>
+                        <input type="text" id="inventoryean" placeholder="输入EAN编码">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inventoryCategory">商品类别 *</label>
+                        <select id="inventoryCategory">
+                            <option value="">选择类别</option>
+                            <!-- 选项将通过JS动态填充 -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inventoryQuantity">当前数量 *</label>
+                        <input type="number" id="inventoryQuantity" placeholder="输入库存数量" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="inventoryMinStock">最低库存 *</label>
+                        <input type="number" id="inventoryMinStock" placeholder="输入最低库存量" min="0">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inventoryPrice">单价(元) *</label>
+                        <input type="number" id="inventoryPrice" placeholder="输入商品单价" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="inventoryLocation">存放位置</label>
+                        <select id="inventoryLocation">
+                            <option value="">选择存放位置</option>
+                            <!-- 选项将通过JS动态填充 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inventoryNotes">备注</label>
+                        <input type="text" id="inventoryNotes" placeholder="输入备注信息">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-success" id="saveInventoryBtn"><i class="fas fa-save"></i> 保存商品</button>
+                    <button class="btn btn-danger" id="cancelInventoryBtn"><i class="fas fa-times"></i> 取消</button>
+                </div>
+                <hr style="margin: 25px 0;">
+            </div>
+            
+            <div id="inventoryTableContainer">
+                <div class="table-search-container">
+                    <div class="table-search-box">
+                        <input type="text" id="inventorySearch" class="table-search-input" placeholder="搜索商品名称、商品编码或EAN编码...">
+                    </div>
+                    <button class="btn btn-info" id="clearInventorySearch">
+                        <i class="fas fa-times"></i> 清除搜索
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="inventoryTable">
+                        <thead>
+                            <tr>
+                                <th>商品名称</th>
+                                <th>商品编码</th>
+                                <th>EAN编码</th>
+                                <th>类别</th>
+                                <th>库存数量</th>
+                                <th>最低库存</th>
+                                <th>单价</th>
+                                <th>存放位置</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <!-- 库存数据将通过JS动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination-container" id="inventoryPagination">
+                    <div class="pagination-info" id="inventoryPaginationInfo">
+                        第 1 页，共 1 页，显示 0 条数据
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="inventoryPrevBtn" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <div class="pagination-pages" id="inventoryPageNumbers">
+                            <!-- 页码按钮将通过JS动态填充 -->
+                        </div>
+                        <button class="pagination-btn" id="inventoryNextBtn" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="emptyInventory" class="empty-message" style="display: none;">
+                    <i class="fas fa-box-open"></i>
+                    <p>暂无库存数据，请添加商品</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 订货管理 -->
+        <div id="order" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-clipboard-list"></i> 订货管理</h2>
+                <button class="btn" id="addOrderBtn"><i class="fas fa-plus"></i> 添加订货单</button>
+            </div>
+            
+            <div id="orderForm" style="display: none;">
+                <h3>添加订货单</h3>
+                <div class="form-row">
+                    <div class="form-group search-container">
+                        <label for="orderProductSearch">搜索商品 *</label>
+                        <input type="text" id="orderProductSearch" placeholder="输入商品编码、EAN或名称搜索" autocomplete="off">
+                        <div class="search-results" id="orderProductResults"></div>
+                    </div>
+                    <input type="hidden" id="orderProductId">
+                    <div class="form-group">
+                        <label for="orderQuantity">订货数量 *</label>
+                        <input type="number" id="orderQuantity" placeholder="输入订货数量" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="orderSupplier">供应商 *</label>
+                        <select id="orderSupplier">
+                            <option value="">选择供应商</option>
+                            <!-- 选项将通过JS动态填充 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="orderDate">订货日期 *</label>
+                        <input type="date" id="orderDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="expectedArrivalDate">预计到货日期 *</label>
+                        <input type="date" id="expectedArrivalDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="orderPrice">订货单价(元) *</label>
+                        <input type="number" id="orderPrice" placeholder="输入订货单价" step="0.01" min="0">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="orderNotes">备注</label>
+                        <input type="text" id="orderNotes" placeholder="输入备注信息">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-success" id="saveOrderBtn"><i class="fas fa-save"></i> 保存订货单</button>
+                    <button class="btn btn-danger" id="cancelOrderBtn"><i class="fas fa-times"></i> 取消</button>
+                </div>
+                <hr style="margin: 25px 0;">
+            </div>
+            
+            <div id="orderTableContainer">
+                <div class="table-search-container">
+                    <div class="table-search-box">
+                        <input type="text" id="orderSearch" class="table-search-input" placeholder="搜索商品名称、商品编码、订货单号或供应商...">
+                    </div>
+                    <button class="btn btn-info" id="clearOrderSearch">
+                        <i class="fas fa-times"></i> 清除搜索
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="orderTable">
+                        <thead>
+                            <tr>
+                                <th>订货单号</th>
+                                <th>商品名称</th>
+                                <th>商品编码</th>
+                                <th>供应商</th>
+                                <th>订货数量</th>
+                                <th>订货日期</th>
+                                <th>预计到货</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody">
+                            <!-- 订货数据将通过JS动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination-container" id="orderPagination">
+                    <div class="pagination-info" id="orderPaginationInfo">
+                        第 1 页，共 1 页，显示 0 条数据
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="orderPrevBtn" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <div class="pagination-pages" id="orderPageNumbers">
+                            <!-- 页码按钮将通过JS动态填充 -->
+                        </div>
+                        <button class="pagination-btn" id="orderNextBtn" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="emptyOrder" class="empty-message" style="display: none;">
+                    <i class="fas fa-clipboard"></i>
+                    <p>暂无订货数据，请添加订货单</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 到货管理 -->
+        <div id="arrival" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-shipping-fast"></i> 到货管理</h2>
+                <button class="btn" id="addArrivalBtn"><i class="fas fa-plus"></i> 登记到货</button>
+            </div>
+            
+            <div id="arrivalForm" style="display: none;">
+                <h3>登记到货</h3>
+                <div class="form-row">
+                    <div class="form-group search-container">
+                        <label for="arrivalOrderSearch">搜索订货单 *</label>
+                        <input type="text" id="arrivalOrderSearch" placeholder="输入商品编码、EAN或名称搜索" autocomplete="off">
+                        <div class="search-results" id="arrivalOrderResults"></div>
+                    </div>
+                    <input type="hidden" id="arrivalOrderId">
+                    <div class="form-group">
+                        <label for="arrivalQuantity">到货数量 *</label>
+                        <input type="number" id="arrivalQuantity" placeholder="输入实际到货数量" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="arrivalDate">到货日期 *</label>
+                        <input type="date" id="arrivalDate">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="arrivalQuality">质量状态</label>
+                        <select id="arrivalQuality">
+                            <option value="合格">合格</option>
+                            <option value="部分不合格">部分不合格</option>
+                            <option value="不合格">不合格</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="arrivalInspector">检验员 *</label>
+                        <select id="arrivalInspector">
+                            <option value="">选择检验员</option>
+                            <!-- 选项将通过JS动态填充 -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="arrivalStatus">到货状态 *</label>
+                        <select id="arrivalStatus">
+                            <option value="normal">正常到货</option>
+                            <option value="cancelled">订单取消</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="arrivalNotes">备注</label>
+                        <input type="text" id="arrivalNotes" placeholder="输入备注信息">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-success" id="saveArrivalBtn"><i class="fas fa-save"></i> 保存到货记录</button>
+                    <button class="btn btn-danger" id="cancelArrivalBtn"><i class="fas fa-times"></i> 取消</button>
+                </div>
+                <hr style="margin: 25px 0;">
+            </div>
+            
+            <div id="arrivalTableContainer">
+                <div class="table-search-container">
+                    <div class="table-search-box">
+                        <input type="text" id="arrivalSearch" class="table-search-input" placeholder="搜索商品名称、商品编码、到货单号或供应商...">
+                    </div>
+                    <button class="btn btn-info" id="clearArrivalSearch">
+                        <i class="fas fa-times"></i> 清除搜索
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="arrivalTable">
+                        <thead>
+                            <tr>
+                                <th>到货单号</th>
+                                <th>商品名称</th>
+                                <th>商品编码</th>
+                                <th>供应商</th>
+                                <th>订货数量</th>
+                                <th>到货数量</th>
+                                <th>到货日期</th>
+                                <th>质量状态</th>
+                                <th>检验员</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="arrivalTableBody">
+                            <!-- 到货数据将通过JS动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination-container" id="arrivalPagination">
+                    <div class="pagination-info" id="arrivalPaginationInfo">
+                        第 1 页，共 1 页，显示 0 条数据
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="arrivalPrevBtn" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <div class="pagination-pages" id="arrivalPageNumbers">
+                            <!-- 页码按钮将通过JS动态填充 -->
+                        </div>
+                        <button class="pagination-btn" id="arrivalNextBtn" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="emptyArrival" class="empty-message" style="display: none;">
+                    <i class="fas fa-truck-loading"></i>
+                    <p>暂无到货数据，请登记到货记录</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 出货管理 -->
+        <div id="shipment" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-dolly"></i> 出货管理</h2>
+                <button class="btn" id="addShipmentBtn"><i class="fas fa-plus"></i> 登记出货</button>
+            </div>
+            
+            <div id="shipmentForm" style="display: none;">
+                <h3>登记出货</h3>
+                <div class="form-row">
+                    <div class="form-group search-container">
+                        <label for="shipmentProductSearch">搜索商品 *</label>
+                        <input type="text" id="shipmentProductSearch" placeholder="输入商品编码、EAN或名称搜索" autocomplete="off">
+                        <div class="search-results" id="shipmentProductResults"></div>
+                    </div>
+                    <input type="hidden" id="shipmentProductId">
+                    <div class="form-group">
+                        <label for="shipmentQuantity">出货数量 *</label>
+                        <input type="number" id="shipmentQuantity" placeholder="输入出货数量" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="shipmentCustomer">客户名称 *</label>
+                        <select id="shipmentCustomer">
+                            <option value="">选择客户</option>
+                            <!-- 选项将通过JS动态填充 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="shipmentDate">出货日期 *</label>
+                        <input type="date" id="shipmentDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="shipmentPrice">出货单价(元) *</label>
+                        <input type="number" id="shipmentPrice" placeholder="输入出货单价" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="shipmentType">出货方式</label>
+                        <!-- 修复：确保默认显示"选择方式" -->
+                        <select id="shipmentType">
+                            <option value="">选择方式</option>
+                            <!-- 选项将通过JS动态填充 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="shipmentNotes">备注</label>
+                        <input type="text" id="shipmentNotes" placeholder="输入备注信息">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-success" id="saveShipmentBtn"><i class="fas fa-save"></i> 保存出货记录</button>
+                    <button class="btn btn-danger" id="cancelShipmentBtn"><i class="fas fa-times"></i> 取消</button>
+                </div>
+                <hr style="margin: 25px 0;">
+            </div>
+            
+            <div id="shipmentTableContainer">
+                <div class="table-search-container">
+                    <div class="table-search-box">
+                        <input type="text" id="shipmentSearch" class="table-search-input" placeholder="搜索商品名称、商品编码、出货单号或客户名称...">
+                    </div>
+                    <button class="btn btn-info" id="clearShipmentSearch">
+                        <i class="fas fa-times"></i> 清除搜索
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="shipmentTable">
+                        <thead>
+                            <tr>
+                                <th>出货单号</th>
+                                <th>商品名称</th>
+                                <th>商品编码</th>
+                                <th>客户名称</th>
+                                <th>出货数量</th>
+                                <th>出货日期</th>
+                                <th>出货方式</th>
+                                <th>出货单价</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shipmentTableBody">
+                            <!-- 出货数据将通过JS动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination-container" id="shipmentPagination">
+                    <div class="pagination-info" id="shipmentPaginationInfo">
+                        第 1 页，共 1 页，显示 0 条数据
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="shipmentPrevBtn" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <div class="pagination-pages" id="shipmentPageNumbers">
+                            <!-- 页码按钮将通过JS动态填充 -->
+                        </div>
+                        <button class="pagination-btn" id="shipmentNextBtn" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="emptyShipment" class="empty-message" style="display: none;">
+                    <i class="fas fa-dolly"></i>
+                    <p>暂无出货数据，请登记出货记录</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 未到货订单 -->
+        <div id="pending" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-clock"></i> 未到货订单</h2>
+                <div class="section-header-buttons">
+                    <button class="btn" id="refreshPendingBtn"><i class="fas fa-sync-alt"></i> 刷新数据</button>
+                    <button class="btn btn-info" id="exportPendingBtn"><i class="fas fa-file-excel"></i> 导出未到货</button>
+                </div>
+            </div>
+            
+            <div id="pendingTableContainer">
+                <div class="table-search-container">
+                    <div class="table-search-box">
+                        <input type="text" id="pendingSearch" class="table-search-input" placeholder="搜索商品名称、商品编码、订货单号或供应商...">
+                    </div>
+                    <button class="btn btn-info" id="clearPendingSearch">
+                        <i class="fas fa-times"></i> 清除搜索
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="pendingTable">
+                        <thead>
+                            <tr>
+                                <th>订货单号</th>
+                                <th>商品名称</th>
+                                <th>商品编码</th>
+                                <th>供应商</th>
+                                <th>订货数量</th>
+                                <th>订货日期</th>
+                                <th>预计到货</th>
+                                <th>已到货数量</th>
+                                <th>剩余数量</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingTableBody">
+                            <!-- 未到货数据将通过JS动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination-container" id="pendingPagination">
+                    <div class="pagination-info" id="pendingPaginationInfo">
+                        第 1 页，共 1 页，显示 0 条数据
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="pendingPrevBtn" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <div class="pagination-pages" id="pendingPageNumbers">
+                            <!-- 页码按钮将通过JS动态填充 -->
+                        </div>
+                        <button class="pagination-btn" id="pendingNextBtn" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="emptyPending" class="empty-message" style="display: none;">
+                    <i class="fas fa-check-circle"></i>
+                    <p>暂无未到货订单，所有订单已到货</p>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>订货到货出货库存管理系统 版本v1.0.0 &copy; 2026 | 数据存储在浏览器本地，请定期备份数据</p>
+            <p style="margin-top: 10px; font-size: 0.8rem; color: #aaa;">
+                <button class="btn btn-danger" id="clearDataBtn" style="padding: 5px 10px; font-size: 0.8rem;">清空所有数据</button>
+            </p>
+        </footer>
+    </div>
+    
+    <!-- 提示消息容器 -->
+    <div id="toastContainer"></div>
+    
+    <!-- 下载通知容器 -->
+    <div id="downloadNotificationContainer"></div>
+
+    <script>
+        // 初始化数据存储（在原有数据基础上增加设置数据）
+        let inventoryData = JSON.parse(localStorage.getItem('inventoryData')) || [];
+        let orderData = JSON.parse(localStorage.getItem('orderData')) || [];
+        let arrivalData = JSON.parse(localStorage.getItem('arrivalData')) || [];
+        let shipmentData = JSON.parse(localStorage.getItem('shipmentData')) || [];
+        let currentArchiveName = localStorage.getItem('currentArchiveName') || '初始版本';
+        let lastArchiveTimestamp = localStorage.getItem('lastArchiveTimestamp') || null;
+        let currentArchiveDescription = localStorage.getItem('currentArchiveDescription') || '';
+        
+        // 设置数据初始化
+        let settingsData = JSON.parse(localStorage.getItem('settingsData')) || {
+            categories: ['分类一', '分类二', '分类三', '分类四', '分类五', '其他'],
+            locations: [],
+            suppliers: [],
+            inspectors: [],
+            customers: [],
+            shipmentTypes: ['店内销售', '货柜出口', '快递空运', '快递陆运', '其他']
+        };
+        
+        // 分页配置（保持不变）
+        const PAGE_SIZE = 50;
+        
+        // 各页面的分页状态（保持不变）
+        const paginationState = {
+            inventory: {
+                currentPage: 1,
+                searchTerm: '',
+                filteredData: null
+            },
+            order: {
+                currentPage: 1,
+                searchTerm: '',
+                filteredData: null
+            },
+            arrival: {
+                currentPage: 1,
+                searchTerm: '',
+                filteredData: null
+            },
+            shipment: {
+                currentPage: 1,
+                searchTerm: '',
+                filteredData: null
+            },
+            pending: {
+                currentPage: 1,
+                searchTerm: '',
+                filteredData: null
+            }
+        };
+        
+        // 全局状态管理（保持不变）
+        let currentState = {
+            isEditingInventory: false,
+            editingInventoryId: null,
+            isEditingArrival: false,
+            editingArrivalId: null
+        };
+        
+        // 生成唯一ID - 使用更易读的格式（保持不变）
+        function generateId(prefix) {
+            const date = new Date();
+            const timestamp = date.getFullYear().toString() + 
+                (date.getMonth() + 1).toString().padStart(2, '0') + 
+                date.getDate().toString().padStart(2, '0') + 
+                date.getHours().toString().padStart(2, '0') + 
+                date.getMinutes().toString().padStart(2, '0') + 
+                date.getSeconds().toString().padStart(2, '0');
+            
+            const random = Math.random().toString(36).substr(2, 4).toUpperCase();
+            
+            return `${prefix}_${timestamp}_${random}`;
+        }
+        
+        // 显示提示消息（保持不变）
+        function showToast(message, type = 'success', duration = 3000) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+        
+        // 显示下载通知（保持不变）
+        function showDownloadNotification(message, downloadUrl = null, fileName = null) {
+            const container = document.getElementById('downloadNotificationContainer');
+            const notification = document.createElement('div');
+            notification.className = 'download-notification';
+            
+            if (downloadUrl && fileName) {
+                notification.innerHTML = `
+                    <i class="fas fa-download"></i>
+                    <span>${message}</span>
+                    <a href="${downloadUrl}" download="${fileName}" id="manualDownloadLink">点击这里手动下载</a>
+                `;
+            } else {
+                notification.innerHTML = `
+                    <i class="fas fa-info-circle"></i>
+                    <span>${message}</span>
+                `;
+            }
+            
+            container.appendChild(notification);
+            
+            setTimeout(() => notification.classList.add('show'), 10);
+            
+            if (downloadUrl) {
+                setTimeout(() => {
+                    const link = document.getElementById('manualDownloadLink');
+                    if (link) {
+                        link.click();
+                    }
+                }, 500);
+            }
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // 修改：更新选择框选项函数
+        function updateSelectOptions() {
+            // 更新商品类别选择框
+            const categorySelects = document.querySelectorAll('#inventoryCategory');
+            categorySelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">选择类别</option>';
+                settingsData.categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+
+            // 更新存放位置选择框
+            const locationSelects = document.querySelectorAll('#inventoryLocation');
+            locationSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">选择存放位置</option>';
+                settingsData.locations.forEach(location => {
+                    const option = document.createElement('option');
+                    option.value = location;
+                    option.textContent = location;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+
+            // 更新供应商选择框
+            const supplierSelects = document.querySelectorAll('#orderSupplier');
+            supplierSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">选择供应商</option>';
+                settingsData.suppliers.forEach(supplier => {
+                    const option = document.createElement('option');
+                    option.value = supplier;
+                    option.textContent = supplier;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+
+            // 更新检验员选择框
+            const inspectorSelects = document.querySelectorAll('#arrivalInspector');
+            inspectorSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">选择检验员</option>';
+                settingsData.inspectors.forEach(inspector => {
+                    const option = document.createElement('option');
+                    option.value = inspector;
+                    option.textContent = inspector;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+
+            // 更新客户名称选择框
+            const customerSelects = document.querySelectorAll('#shipmentCustomer');
+            customerSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">选择客户</option>';
+                settingsData.customers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer;
+                    option.textContent = customer;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+
+            // 更新出货方式选择框
+            const shipmentTypeSelects = document.querySelectorAll('#shipmentType');
+            shipmentTypeSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">选择方式</option>';
+                settingsData.shipmentTypes.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+        }
+
+// 更新数据列表选项
+function updateDatalistOptions(datalistId, items) {
+    const datalist = document.getElementById(datalistId);
+    if (!datalist) return;
+    
+    datalist.innerHTML = '';
+    items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        datalist.appendChild(option);
+    });
+}
+
+  
+        // 更新统计数据
+        function updateStats() {
+            document.getElementById('totalItems').textContent = inventoryData.length;
+            
+            const pendingOrders = orderData.filter(order => {
+                const orderStatus = getOrderStatus(order.id);
+                return orderStatus !== 'completed' && orderStatus !== 'cancelled' && orderStatus !== 'partial-completed';
+            }).length;
+            
+            document.getElementById('pendingOrders').textContent = pendingOrders;
+            
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            const monthShipments = shipmentData
+                .filter(shipment => {
+                    const shipmentDate = new Date(shipment.date);
+                    return shipmentDate.getMonth() === currentMonth && shipmentDate.getFullYear() === currentYear;
+                })
+                .reduce((sum, shipment) => sum + shipment.quantity, 0);
+            document.getElementById('monthShipments').textContent = monthShipments;
+            
+            const lowStockItems = inventoryData.filter(item => item.quantity <= item.minStock).length;
+            document.getElementById('lowStockItems').textContent = lowStockItems;
+        }
+        
+        // 获取订单状态
+        function getOrderStatus(orderId) {
+            const order = orderData.find(o => o.id === orderId);
+            if (!order) return 'unknown';
+            
+            // 获取该订单的所有到货记录
+            const orderArrivals = arrivalData.filter(arrival => arrival.orderId === orderId);
+            
+            if (orderArrivals.length === 0) {
+                return 'pending';
+            }
+            
+            // 计算正常到货总数
+            const normalArrivalsTotal = orderArrivals
+                .filter(arrival => arrival.status === 'normal')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            // 计算取消到货总数
+            const cancelledArrivalsTotal = orderArrivals
+                .filter(arrival => arrival.status === 'cancelled')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            const totalArrived = normalArrivalsTotal + cancelledArrivalsTotal;
+            
+            if (cancelledArrivalsTotal === order.quantity) {
+                return 'cancelled';
+            } else if (totalArrived === order.quantity) {
+                if (normalArrivalsTotal === order.quantity) {
+                    return 'completed';
+                } else if (cancelledArrivalsTotal > 0) {
+                    return 'partial-completed';
+                }
+            } else if (totalArrived > 0) {
+                return 'partial';
+            }
+            
+            return 'pending';
+        }
+        
+        // 获取订单状态文本
+        function getOrderStatusText(orderId) {
+            const status = getOrderStatus(orderId);
+            switch(status) {
+                case 'pending': return '未到货';
+                case 'partial': return '部分到货';
+                case 'completed': return '已完成';
+                case 'partial-completed': return '部分到货(已完结)';
+                case 'cancelled': return '订单已全数取消';
+                default: return '未知状态';
+            }
+        }
+        
+        // 获取订单状态CSS类
+        function getOrderStatusClass(orderId) {
+            const status = getOrderStatus(orderId);
+            switch(status) {
+                case 'pending': return 'status-pending';
+                case 'partial': return 'status-partial';
+                case 'completed': return 'status-completed';
+                case 'partial-completed': return 'status-partial-completed';
+                case 'cancelled': return 'status-cancelled';
+                default: return '';
+            }
+        }
+        
+        // 更新存档状态显示
+function updateArchiveStatus() {
+    document.getElementById('currentArchiveName').textContent = currentArchiveName;
+    
+    const descriptionEl = document.getElementById('archiveDescription');
+    if (currentArchiveDescription && currentArchiveDescription.trim() !== '') {
+        descriptionEl.textContent = `描述：${currentArchiveDescription}`;
+        descriptionEl.style.display = 'block';
+    } else {
+        descriptionEl.textContent = '';
+        descriptionEl.style.display = 'none';
+    }
+    
+    if (lastArchiveTimestamp) {
+        const date = new Date(lastArchiveTimestamp);
+        document.getElementById('archiveTimestamp').textContent = 
+            `最后保存时间：${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    } else {
+        document.getElementById('archiveTimestamp').textContent = '最后保存时间：未保存';
+    }
+}
+
+// 修改保存数据函数，增加设置数据保存
+        function saveData() {
+            localStorage.setItem('inventoryData', JSON.stringify(inventoryData));
+            localStorage.setItem('orderData', JSON.stringify(orderData));
+            localStorage.setItem('arrivalData', JSON.stringify(arrivalData));
+            localStorage.setItem('shipmentData', JSON.stringify(shipmentData));
+            localStorage.setItem('settingsData', JSON.stringify(settingsData));
+            localStorage.setItem('currentArchiveName', currentArchiveName);
+            localStorage.setItem('currentArchiveDescription', currentArchiveDescription);
+            
+            updateStats();
+            updateArchiveStatus();
+            refreshActiveTable();
+            updateSelectOptions();
+        }
+        
+        // 刷新当前活动的表格
+        function refreshActiveTable() {
+            const activeTab = document.querySelector('.tab.active');
+            if (!activeTab) return;
+            
+            const tabId = activeTab.getAttribute('data-tab');
+            
+            switch(tabId) {
+                case 'inventory':
+                    loadInventoryTable();
+                    break;
+                case 'order':
+                    loadOrderTable();
+                    break;
+                case 'arrival':
+                    loadArrivalTable();
+                    break;
+                case 'shipment':
+                    loadShipmentTable();
+                    break;
+                case 'pending':
+                    loadPendingTable();
+                    break;
+                case 'status':
+                    // 状态一览页面不需要刷新
+                    break;
+            }
+        }
+                
+        // 渲染设置列表
+        function renderSettingsList(listId, items, type) {
+            const listElement = document.getElementById(listId);
+            if (!listElement) return;
+            
+            listElement.innerHTML = '';
+            
+            if (items.length === 0) {
+                listElement.innerHTML = '<div style="color: #777; font-style: italic;">暂无数据</div>';
+                return;
+            }
+            
+            items.forEach((item, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'settings-tag';
+                tag.innerHTML = `
+                    ${item}
+                    <button class="remove-tag" data-type="${type}" data-index="${index}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                listElement.appendChild(tag);
+            });
+            
+            // 添加删除事件监听
+            listElement.querySelectorAll('.remove-tag').forEach(button => {
+                button.addEventListener('click', function() {
+                    const type = this.getAttribute('data-type');
+                    const index = parseInt(this.getAttribute('data-index'));
+                    removeSettingItem(type, index);
+                });
+            });
+        }
+        
+        // 删除设置项
+        function removeSettingItem(type, index) {
+            if (!confirm(`确定要删除这个${getSettingTypeName(type)}吗？`)) return;
+            
+            if (settingsData[type] && index >= 0 && index < settingsData[type].length) {
+                settingsData[type].splice(index, 1);
+                saveData();
+                loadSettings();
+                showToast(`${getSettingTypeName(type)}已删除`, 'warning');
+            }
+        }
+        
+        // 获取设置类型名称
+        function getSettingTypeName(type) {
+            const names = {
+                'categories': '商品类别',
+                'locations': '存放位置',
+                'suppliers': '供应商',
+                'inspectors': '检验员',
+                'customers': '客户名称',
+                'shipmentTypes': '出货方式'
+            };
+            return names[type] || '设置项';
+        }
+        
+        // 加载设置
+        function loadSettings() {
+            renderSettingsList('categoryList', settingsData.categories, 'categories');
+            renderSettingsList('locationList', settingsData.locations, 'locations');
+            renderSettingsList('supplierList', settingsData.suppliers, 'suppliers');
+            renderSettingsList('inspectorList', settingsData.inspectors, 'inspectors');
+            renderSettingsList('customerList', settingsData.customers, 'customers');
+            renderSettingsList('shipmentTypeList', settingsData.shipmentTypes, 'shipmentTypes');
+        }
+        
+        // 添加设置项
+        function addSettingItem(type, inputId) {
+            const input = document.getElementById(inputId);
+            const value = input.value.trim();
+            
+            if (!value) {
+                showToast('请输入内容', 'warning');
+                return;
+            }
+            
+            if (!settingsData[type]) {
+                settingsData[type] = [];
+            }
+            
+            // 检查是否已存在
+            if (settingsData[type].includes(value)) {
+                showToast(`${getSettingTypeName(type)}已存在`, 'warning');
+                return;
+            }
+            
+            settingsData[type].push(value);
+            input.value = '';
+            saveData();
+            loadSettings();
+            showToast(`${getSettingTypeName(type)}添加成功`, 'success');
+        }
+        
+        // 通用分页函数
+        function paginateData(data, page, pageSize, searchTerm = '', searchFields = []) {
+            // 如果有搜索词，先过滤数据
+            let filteredData = data;
+            if (searchTerm && searchTerm.trim() !== '') {
+                const term = searchTerm.toLowerCase().trim();
+                filteredData = data.filter(item => {
+                    // 如果指定了搜索字段，只在指定字段中搜索
+                    if (searchFields.length > 0) {
+                        return searchFields.some(field => {
+                            const value = item[field];
+                            return value && value.toString().toLowerCase().includes(term);
+                        });
+                    }
+                    // 否则在所有字符串字段中搜索
+                    return Object.values(item).some(value => {
+                        return typeof value === 'string' && value.toLowerCase().includes(term);
+                    });
+                });
+            }
+            
+            // 计算总页数
+            const totalItems = filteredData.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+            
+            // 确保页码在有效范围内
+            const currentPage = Math.max(1, Math.min(page, totalPages));
+            
+            // 计算分页数据
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, totalItems);
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+            
+            return {
+                data: paginatedData,
+                currentPage,
+                totalPages,
+                totalItems,
+                filteredData
+            };
+        }
+        
+        // 渲染分页控件
+        function renderPagination(paginationInfo, containerId, onPageChange) {
+            const { currentPage, totalPages, totalItems } = paginationInfo;
+            
+            // 更新分页信息
+            const infoElement = document.getElementById(`${containerId}PaginationInfo`);
+            if (infoElement) {
+                infoElement.textContent = `第 ${currentPage} 页，共 ${totalPages} 页，显示 ${totalItems} 条数据`;
+            }
+            
+            // 更新上一页/下一页按钮
+            const prevBtn = document.getElementById(`${containerId}PrevBtn`);
+            const nextBtn = document.getElementById(`${containerId}NextBtn`);
+            
+            if (prevBtn) {
+                prevBtn.disabled = currentPage <= 1;
+                prevBtn.onclick = () => onPageChange(currentPage - 1);
+            }
+            
+            if (nextBtn) {
+                nextBtn.disabled = currentPage >= totalPages;
+                nextBtn.onclick = () => onPageChange(currentPage + 1);
+            }
+            
+            // 更新页码按钮
+            const pagesContainer = document.getElementById(`${containerId}PageNumbers`);
+            if (!pagesContainer) return;
+            
+            pagesContainer.innerHTML = '';
+            
+            // 显示最多7个页码按钮
+            const maxPagesToShow = 7;
+            let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+            let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+            
+            // 调整起始页码，确保显示maxPagesToShow个页码
+            if (endPage - startPage + 1 < maxPagesToShow) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+            }
+            
+            // 添加第一页按钮
+            if (startPage > 1) {
+                const firstPageBtn = document.createElement('div');
+                firstPageBtn.className = 'pagination-page';
+                firstPageBtn.textContent = '1';
+                firstPageBtn.onclick = () => onPageChange(1);
+                pagesContainer.appendChild(firstPageBtn);
+                
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('div');
+                    ellipsis.className = 'pagination-page';
+                    ellipsis.textContent = '...';
+                    ellipsis.style.cursor = 'default';
+                    pagesContainer.appendChild(ellipsis);
+                }
+            }
+            
+            // 添加页码按钮
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('div');
+                pageBtn.className = 'pagination-page';
+                if (i === currentPage) {
+                    pageBtn.classList.add('active');
+                }
+                pageBtn.textContent = i;
+                pageBtn.onclick = () => onPageChange(i);
+                pagesContainer.appendChild(pageBtn);
+            }
+            
+            // 添加最后一页按钮
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsis = document.createElement('div');
+                    ellipsis.className = 'pagination-page';
+                    ellipsis.textContent = '...';
+                    ellipsis.style.cursor = 'default';
+                    pagesContainer.appendChild(ellipsis);
+                }
+                
+                const lastPageBtn = document.createElement('div');
+                lastPageBtn.className = 'pagination-page';
+                lastPageBtn.textContent = totalPages;
+                lastPageBtn.onclick = () => onPageChange(totalPages);
+                pagesContainer.appendChild(lastPageBtn);
+            }
+        }
+        
+        // 库存管理分页功能
+        function loadInventoryPage(page = 1) {
+            const state = paginationState.inventory;
+            state.currentPage = page;
+            
+            const searchTerm = state.searchTerm;
+            const searchFields = ['name', 'code', 'ean'];
+            
+            const paginationResult = paginateData(inventoryData, page, PAGE_SIZE, searchTerm, searchFields);
+            state.filteredData = paginationResult.filteredData;
+            
+            const tableBody = document.getElementById('inventoryTableBody');
+            const emptyMessage = document.getElementById('emptyInventory');
+            
+            if (paginationResult.data.length === 0) {
+                tableBody.innerHTML = '';
+                emptyMessage.style.display = 'block';
+                document.getElementById('inventoryPagination').style.display = 'none';
+                return;
+            }
+            
+            emptyMessage.style.display = 'none';
+            document.getElementById('inventoryPagination').style.display = 'flex';
+            
+            tableBody.innerHTML = '';
+            
+            paginationResult.data.forEach(item => {
+                const isLowStock = item.quantity <= item.minStock;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.name}</td>
+                    <td>${item.code}</td>
+                    <td>${item.ean || '-'}</td>
+                    <td>${item.category}</td>
+                    <td style="${isLowStock ? 'color: #e74c3c; font-weight: bold;' : ''}">${item.quantity} 个</td>
+                    <td>${item.minStock} 个</td>
+                    <td>¥${item.price.toFixed(2)}</td>
+                    <td>${item.location || '-'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn edit" onclick="editInventoryItem('${item.id}')">编辑</button>
+                            <button class="action-btn delete" onclick="deleteInventoryItem('${item.id}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            renderPagination(paginationResult, 'inventory', loadInventoryPage);
+        }
+        
+        // 库存搜索功能
+        function setupInventorySearch() {
+            const searchInput = document.getElementById('inventorySearch');
+            const clearBtn = document.getElementById('clearInventorySearch');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                paginationState.inventory.searchTerm = searchTerm;
+                loadInventoryPage(1);
+            });
+            
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                paginationState.inventory.searchTerm = '';
+                loadInventoryPage(1);
+            });
+            
+            // 初始化加载第一页
+            loadInventoryPage(1);
+        }
+        
+// 修改存档管理功能
+function saveArchive() {
+    const archiveName = prompt('请输入存档名称（可选）:') || `存档_${new Date().toLocaleString()}`;
+    const archiveDescription = prompt('请输入存档描述（可选）:') || '';
+    
+    if (archiveName === null) return;
+    
+    const timestamp = new Date().toISOString();
+    const archiveData = {
+        id: generateId('ARCH'),
+        name: archiveName,
+        description: archiveDescription,
+        timestamp: timestamp,
+        inventoryData: JSON.parse(JSON.stringify(inventoryData)),
+        orderData: JSON.parse(JSON.stringify(orderData)),
+        arrivalData: JSON.parse(JSON.stringify(arrivalData)),
+        shipmentData: JSON.parse(JSON.stringify(shipmentData))
+    };
+            
+    // 更新当前存档信息
+    currentArchiveName = archiveName;
+    currentArchiveDescription = archiveDescription;
+    lastArchiveTimestamp = timestamp;
+    
+    localStorage.setItem('lastArchiveTimestamp', lastArchiveTimestamp);
+    localStorage.setItem('currentArchiveDescription', currentArchiveDescription);
+    
+    // 保存数据到本地存储并刷新显示
+    saveData();
+    
+    // 下载存档文件
+    downloadArchiveFile(archiveData);
+    
+    showToast(`已保存存档：${archiveName}`, 'success');
+}
+        
+        // 下载单个存档文件
+        function downloadArchiveFile(archiveData) {
+            try {
+                const dataStr = JSON.stringify(archiveData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const safeName = archiveData.name.replace(/[<>:"/\\|?*]/g, '_');
+                const dateStr = new Date(archiveData.timestamp).toISOString().split('T')[0];
+                const fileName = `库存存档_${safeName}_${dateStr}.json`;
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                
+                link.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                }, true);
+                
+                link.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                showDownloadNotification(`存档 "${archiveData.name}" 下载中...`);
+                
+            } catch (error) {
+                console.error('下载存档失败:', error);
+                showToast('存档下载失败，请重试', 'error');
+            }
+        }
+        
+        // 导出Excel功能
+        function exportToExcel() {
+            try {
+                const wb = XLSX.utils.book_new();
+                
+                const inventoryWsData = [
+                    ['商品名称', '商品编码', 'EAN编码', '类别', '库存数量', '最低库存', '单价(元)', '存放位置', '备注']
+                ];
+                
+                inventoryData.forEach(item => {
+                    inventoryWsData.push([
+                        item.name,
+                        item.code,
+                        item.ean || '',
+                        item.category,
+                        item.quantity,
+                        item.minStock,
+                        item.price,
+                        item.location || '',
+                        item.notes || ''
+                    ]);
+                });
+                
+                const inventoryWs = XLSX.utils.aoa_to_sheet(inventoryWsData);
+                XLSX.utils.book_append_sheet(wb, inventoryWs, '库存');
+                
+                const orderWsData = [
+                    ['订货单号', '商品名称', '商品编码', '供应商', '订货数量', '订货日期', '预计到货日期', '订货单价(元)', '备注', '状态']
+                ];
+                
+                orderData.forEach(order => {
+                    const statusText = getOrderStatusText(order.id);
+                    
+                    orderWsData.push([
+                        order.id,
+                        order.productName,
+                        order.productCode,
+                        order.supplier,
+                        order.quantity,
+                        order.orderDate,
+                        order.expectedArrivalDate,
+                        order.price,
+                        order.notes || '',
+                        statusText
+                    ]);
+                });
+                
+                const orderWs = XLSX.utils.aoa_to_sheet(orderWsData);
+                XLSX.utils.book_append_sheet(wb, orderWs, '订货');
+                
+                const arrivalWsData = [
+                    ['到货单号', '商品名称', '商品编码', '供应商', '订货数量', '到货数量', '到货日期', '质量状态', '检验员', '到货状态', '备注']
+                ];
+                
+                arrivalData.forEach(arrival => {
+                    arrivalWsData.push([
+                        arrival.id,
+                        arrival.productName,
+                        arrival.productCode,
+                        arrival.supplier,
+                        arrival.orderQuantity,
+                        arrival.quantity,
+                        arrival.arrivalDate,
+                        arrival.quality,
+                        arrival.inspector,
+                        arrival.status === 'cancelled' ? '订单取消' : '正常到货',
+                        arrival.notes || ''
+                    ]);
+                });
+                
+                const arrivalWs = XLSX.utils.aoa_to_sheet(arrivalWsData);
+                XLSX.utils.book_append_sheet(wb, arrivalWs, '到货');
+                
+                const shipmentWsData = [
+                    ['出货单号', '商品名称', '商品编码', '客户名称', '出货数量', '出货日期', '出货方式', '出货单价(元)', '备注']
+                ];
+                
+                shipmentData.forEach(shipment => {
+                    shipmentWsData.push([
+                        shipment.id,
+                        shipment.productName,
+                        shipment.productCode,
+                        shipment.customer,
+                        shipment.quantity,
+                        shipment.date,
+                        shipment.type,
+                        shipment.price,
+                        shipment.notes || ''
+                    ]);
+                });
+                
+                const shipmentWs = XLSX.utils.aoa_to_sheet(shipmentWsData);
+                XLSX.utils.book_append_sheet(wb, shipmentWs, '出货');
+                
+                const fileName = `库存数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+                
+                XLSX.writeFile(wb, fileName);
+                
+                showDownloadNotification(`Excel文件 "${fileName}" 下载中...`);
+                
+            } catch (error) {
+                console.error('导出Excel失败:', error);
+                showToast('导出Excel失败，请重试', 'error');
+            }
+        }
+        
+        // CSV模板下载功能
+        function downloadCsvTemplate() {
+            const templateContent = "商品名称,商品编码,EAN编码,类别,库存数量,最低库存,单价(元),存放位置,备注\n" +
+                "示例商品,SP001,4901234567890,电子产品,100,10,99.99,A仓库货架1,这是示例商品\n" +
+                "办公椅,OF001,4909876543210,办公用品,50,5,299.99,B仓库,人体工学办公椅";
+            
+            const blob = new Blob(["\uFEFF" + templateContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '库存商品导入模板.csv';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            showDownloadNotification('CSV模板下载中...');
+        }
+        
+        // 导出CSV功能
+        function exportToCsv() {
+            try {
+                let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+                
+                csvContent += "===== 库存数据 =====\n";
+                csvContent += "商品名称,商品编码,EAN编码,类别,库存数量,最低库存,单价(元),存放位置,备注\n";
+                
+                inventoryData.forEach(item => {
+                    csvContent += `"${item.name}","${item.code}","${item.ean || ''}","${item.category}",${item.quantity},${item.minStock},${item.price},"${item.location || ''}","${item.notes || ''}"\n`;
+                });
+                
+                csvContent += "\n===== 订货数据 =====\n";
+                csvContent += "订货单号,商品名称,商品编码,供应商,订货数量,订货日期,预计到货日期,订货单价(元),备注,状态\n";
+                
+                orderData.forEach(order => {
+                    const statusText = getOrderStatusText(order.id);
+                    
+                    csvContent += `"${order.id}","${order.productName}","${order.productCode}","${order.supplier}",${order.quantity},"${order.orderDate}","${order.expectedArrivalDate}",${order.price},"${order.notes || ''}","${statusText}"\n`;
+                });
+                
+                csvContent += "\n===== 到货数据 =====\n";
+                csvContent += "到货单号,商品名称,商品编码,供应商,订货数量,到货数量,到货日期,质量状态,检验员,到货状态,备注\n";
+                
+                arrivalData.forEach(arrival => {
+                    csvContent += `"${arrival.id}","${arrival.productName}","${arrival.productCode}","${arrival.supplier}",${arrival.orderQuantity},${arrival.quantity},"${arrival.arrivalDate}","${arrival.quality}","${arrival.inspector}","${arrival.status === 'cancelled' ? '订单取消' : '正常到货'}","${arrival.notes || ''}"\n`;
+                });
+                
+                csvContent += "\n===== 出货数据 =====\n";
+                csvContent += "出货单号,商品名称,商品编码,客户名称,出货数量,出货日期,出货方式,出货单价(元),备注\n";
+                
+                shipmentData.forEach(shipment => {
+                    csvContent += `"${shipment.id}","${shipment.productName}","${shipment.productCode}","${shipment.customer}",${shipment.quantity},"${shipment.date}","${shipment.type}",${shipment.price},"${shipment.notes || ''}"\n`;
+                });
+                
+                const encodedUri = encodeURI(csvContent);
+                const fileName = `库存数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+                
+                const link = document.createElement('a');
+                link.href = encodedUri;
+                link.download = fileName;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                
+                link.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                }, true);
+                
+                link.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                }, 100);
+                
+                showDownloadNotification(`CSV文件 "${fileName}" 下载中...`);
+                
+            } catch (error) {
+                console.error('导出CSV失败:', error);
+                showToast('导出CSV失败，请重试', 'error');
+            }
+        }
+        
+        // CSV导入功能
+        function importCsv() {
+            document.getElementById('csvImportFile').click();
+        }
+        
+        function handleCsvImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csvText = e.target.result;
+                    const lines = csvText.split('\n').filter(line => line.trim() !== '');
+                    
+                    if (lines.length < 2) {
+                        showToast('CSV文件格式错误，至少需要表头和数据行', 'error');
+                        return;
+                    }
+                    
+                    // 解析表头
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    
+                    // 检查必要字段
+                    const requiredFields = ['商品名称', '商品编码', '类别', '库存数量', '最低库存', '单价(元)'];
+                    for (const field of requiredFields) {
+                        if (!headers.includes(field)) {
+                            showToast(`CSV文件缺少必要字段: ${field}`, 'error');
+                            return;
+                        }
+                    }
+                    
+                    let importedCount = 0;
+                    let updatedCount = 0;
+                    let errorCount = 0;
+                    
+                    // 解析数据行
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i];
+                        const values = parseCsvLine(line);
+                        
+                        if (values.length !== headers.length) {
+                            console.warn(`第${i}行数据列数与表头不匹配，跳过`);
+                            errorCount++;
+                            continue;
+                        }
+                        
+                        const item = {};
+                        headers.forEach((header, index) => {
+                            item[header] = values[index] || '';
+                        });
+                        
+                        try {
+                            // 转换数值类型
+                            const name = item['商品名称'].trim();
+                            const code = item['商品编码'].trim();
+                            const ean = item['EAN编码'] ? item['EAN编码'].trim() : '';
+                            const category = item['类别'].trim();
+                            const quantity = parseInt(item['库存数量']) || 0;
+                            const minStock = parseInt(item['最低库存']) || 0;
+                            const price = parseFloat(item['单价(元)']) || 0;
+                            const location = item['存放位置'] ? item['存放位置'].trim() : '';
+                            const notes = item['备注'] ? item['备注'].trim() : '';
+                            
+                            if (!name || !code || !category) {
+                                console.warn(`第${i}行数据不完整，跳过`);
+                                errorCount++;
+                                return;
+                            }
+                            
+                            // 检查是否已存在相同编码的商品
+                            const existingIndex = inventoryData.findIndex(item => item.code === code);
+                            
+                            if (existingIndex !== -1) {
+                                // 更新现有商品
+                                inventoryData[existingIndex] = {
+                                    ...inventoryData[existingIndex],
+                                    name,
+                                    code,
+                                    ean,
+                                    category,
+                                    quantity,
+                                    minStock,
+                                    price,
+                                    location,
+                                    notes,
+                                    updatedAt: new Date().toISOString()
+                                };
+                                updatedCount++;
+                            } else {
+                                // 添加新商品
+                                const inventoryItem = {
+                                    id: generateId('INV'),
+                                    name,
+                                    code,
+                                    ean,
+                                    category,
+                                    quantity,
+                                    minStock,
+                                    price,
+                                    location,
+                                    notes,
+                                    createdAt: new Date().toISOString()
+                                };
+                                inventoryData.push(inventoryItem);
+                                importedCount++;
+                            }
+                        } catch (error) {
+                            console.error(`解析第${i}行数据时出错:`, error);
+                            errorCount++;
+                        }
+                    }
+                    
+                    saveData();
+                    
+                    let message = `CSV导入完成！`;
+                    if (importedCount > 0) message += ` 新增: ${importedCount}个商品`;
+                    if (updatedCount > 0) message += ` 更新: ${updatedCount}个商品`;
+                    if (errorCount > 0) message += ` 错误: ${errorCount}行`;
+                    
+                    showToast(message, importedCount + updatedCount > 0 ? 'success' : 'warning');
+                    
+                } catch (error) {
+                    console.error('导入CSV失败:', error);
+                    showToast('导入CSV失败，请检查文件格式', 'error');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+            
+            // 重置文件输入
+            event.target.value = '';
+        }
+        
+        // 解析CSV行，处理引号和逗号
+        function parseCsvLine(line) {
+            const values = [];
+            let currentValue = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(currentValue.trim());
+                    currentValue = '';
+                } else {
+                    currentValue += char;
+                }
+            }
+            
+            values.push(currentValue.trim());
+            return values;
+        }
+        
+        // 商品搜索功能
+        function setupProductSearch(searchInputId, resultsId, hiddenInputId, onSelect) {
+            const searchInput = document.getElementById(searchInputId);
+            const resultsContainer = document.getElementById(resultsId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                resultsContainer.innerHTML = '';
+                
+                if (query.length < 1) {
+                    resultsContainer.style.display = 'none';
+                    return;
+                }
+                
+                const filteredProducts = inventoryData.filter(product => {
+                    return product.name.toLowerCase().includes(query) ||
+                           product.code.toLowerCase().includes(query) ||
+                           (product.ean && product.ean.toLowerCase().includes(query));
+                });
+                
+                if (filteredProducts.length === 0) {
+                    resultsContainer.innerHTML = '<div class="search-result-item">未找到匹配的商品</div>';
+                    resultsContainer.style.display = 'block';
+                    return;
+                }
+                
+                filteredProducts.forEach(product => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    item.innerHTML = `
+                        <div><strong>${product.name}</strong></div>
+                        <div style="font-size: 0.85rem; color: #666;">
+                            编码: ${product.code} | EAN: ${product.ean || '无'} | 库存: ${product.quantity}个
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', function() {
+                        searchInput.value = `${product.name} (${product.code})`;
+                        hiddenInput.value = product.id;
+                        resultsContainer.style.display = 'none';
+                        
+                        if (onSelect) onSelect(product);
+                    });
+                    
+                    resultsContainer.appendChild(item);
+                });
+                
+                resultsContainer.style.display = 'block';
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                    resultsContainer.style.display = 'none';
+                }
+            });
+        }
+        
+        // 订货单搜索功能
+        function setupOrderSearch(searchInputId, resultsId, hiddenInputId, onSelect) {
+            const searchInput = document.getElementById(searchInputId);
+            const resultsContainer = document.getElementById(resultsId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                resultsContainer.innerHTML = '';
+                
+                if (query.length < 1) {
+                    resultsContainer.style.display = 'none';
+                    return;
+                }
+                
+                // 只显示未完成的订单
+                const pendingOrders = orderData.filter(order => {
+                    const status = getOrderStatus(order.id);
+                    if (status === 'completed' || status === 'cancelled' || status === 'partial-completed') return false;
+                    
+                    return order.productName.toLowerCase().includes(query) ||
+                           order.productCode.toLowerCase().includes(query) ||
+                           order.id.toLowerCase().includes(query);
+                });
+                
+                if (pendingOrders.length === 0) {
+                    resultsContainer.innerHTML = '<div class="search-result-item">未找到匹配的订货单</div>';
+                    resultsContainer.style.display = 'block';
+                    return;
+                }
+                
+                pendingOrders.forEach(order => {
+                    const statusText = getOrderStatusText(order.id);
+                    const statusClass = getOrderStatusClass(order.id);
+                    
+                    const totalArrived = arrivalData
+                        .filter(arrival => arrival.orderId === order.id)
+                        .reduce((sum, arrival) => sum + (arrival.status === 'normal' ? arrival.quantity : 0), 0);
+                    
+                    const totalCancelled = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'cancelled')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    const remaining = order.quantity - totalArrived - totalCancelled;
+                    
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    item.innerHTML = `
+                        <div><strong>${order.productName}</strong></div>
+                        <div style="font-size: 0.85rem; color: #666;">
+                            订货单号: ${order.id} | 供应商: ${order.supplier}<br>
+                            订货: ${order.quantity}个 | 已到: ${totalArrived}个 | 取消: ${totalCancelled}个 | 剩余: ${remaining}个<br>
+                            状态: <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', function() {
+                        searchInput.value = `${order.productName} (${order.id})`;
+                        hiddenInput.value = order.id;
+                        resultsContainer.style.display = 'none';
+                        
+                        if (onSelect) onSelect(order);
+                    });
+                    
+                    resultsContainer.appendChild(item);
+                });
+                
+                resultsContainer.style.display = 'block';
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                    resultsContainer.style.display = 'none';
+                }
+            });
+        }
+        
+        // 切换选项卡
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+                
+                if (tabId === 'inventory') {
+                    setupInventorySearch();
+                } else if (tabId === 'order') {
+                    setupOrderSearchFunction();
+                } else if (tabId === 'arrival') {
+                    setupArrivalSearch();
+                } else if (tabId === 'shipment') {
+                    setupShipmentSearch();
+                } else if (tabId === 'pending') {
+                    setupPendingSearch();
+                } else if (tabId === 'status') {
+                    // 初始化状态一览页面
+                    document.getElementById('statusResults').style.display = 'none';
+                    document.getElementById('statusNoResults').style.display = 'block';
+                    document.getElementById('statusSearch').value = '';
+                }
+            });
+        });
+        
+        // 状态一览搜索功能
+        function searchProductStatus() {
+            const searchTerm = document.getElementById('statusSearch').value.trim().toLowerCase();
+            
+            if (searchTerm === '') {
+                document.getElementById('statusResults').style.display = 'none';
+                document.getElementById('statusNoResults').style.display = 'block';
+                return;
+            }
+            
+            // 搜索匹配的商品
+            const matchedProducts = inventoryData.filter(product => {
+                return product.name.toLowerCase().includes(searchTerm) ||
+                       product.code.toLowerCase().includes(searchTerm) ||
+                       (product.ean && product.ean.toLowerCase().includes(searchTerm));
+            });
+            
+            if (matchedProducts.length === 0) {
+                document.getElementById('statusResults').style.display = 'none';
+                document.getElementById('statusNoResults').style.display = 'block';
+                showToast('未找到匹配的商品', 'warning');
+                return;
+            }
+            
+            // 显示第一个匹配的商品状态
+            const product = matchedProducts[0];
+            displayProductStatus(product);
+            
+            // 如果有多个匹配项，显示提示
+            if (matchedProducts.length > 1) {
+                showToast(`找到${matchedProducts.length}个匹配的商品，显示第一个匹配项`, 'info');
+            }
+        }
+        
+        // 显示商品状态
+        function displayProductStatus(product) {
+            // 计算统计数据
+            const productId = product.id;
+            const productCode = product.code;
+            
+            // 计算未到货数量
+            const pendingOrders = orderData.filter(order => order.productId === productId);
+            let pendingQuantity = 0;
+            
+            pendingOrders.forEach(order => {
+                const status = getOrderStatus(order.id);
+                if (status !== 'completed' && status !== 'cancelled' && status !== 'partial-completed') {
+                    const totalArrived = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'normal')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    const totalCancelled = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'cancelled')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    pendingQuantity += (order.quantity - totalArrived - totalCancelled);
+                }
+            });
+            
+            // 计算累计订货数量
+            const totalOrdered = orderData
+                .filter(order => order.productId === productId)
+                .reduce((sum, order) => sum + order.quantity, 0);
+            
+            // 计算累计到货数量
+            const totalArrived = arrivalData
+                .filter(arrival => arrival.productId === productId && arrival.status === 'normal')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            // 计算累计出货数量
+            const totalShipped = shipmentData
+                .filter(shipment => shipment.productId === productId)
+                .reduce((sum, shipment) => sum + shipment.quantity, 0);
+            
+            // 更新总览数据
+            document.getElementById('statusInventoryCount').textContent = product.quantity;
+            document.getElementById('statusPendingCount').textContent = pendingQuantity;
+            document.getElementById('statusOrderedCount').textContent = totalOrdered;
+            document.getElementById('statusShippedCount').textContent = totalShipped;
+            
+            // 更新总览表格
+            const summaryTable = document.getElementById('statusSummaryTable');
+            summaryTable.innerHTML = `
+                <tr>
+                    <td>${product.code}</td>
+                    <td>${product.name}</td>
+                    <td>${product.ean || '-'}</td>
+                    <td style="font-weight: bold; color: #27ae60;">${product.quantity} 个</td>
+                    <td style="font-weight: bold; color: #f39c12;">${pendingQuantity} 个</td>
+                    <td style="font-weight: bold; color: #3498db;">${totalOrdered} 个</td>
+                    <td style="font-weight: bold; color: #9b59b6;">${totalShipped} 个</td>
+                </tr>
+            `;
+            
+            // 更新订货详情表格
+            const orderTable = document.getElementById('statusOrderTable');
+            orderTable.innerHTML = '';
+            
+            const productOrders = orderData.filter(order => order.productId === productId);
+            
+            if (productOrders.length === 0) {
+                orderTable.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #777;">暂无订货记录</td>
+                    </tr>
+                `;
+            } else {
+                productOrders.forEach(order => {
+                    const statusText = getOrderStatusText(order.id);
+                    const statusClass = getOrderStatusClass(order.id);
+                    
+                    const totalArrivedForOrder = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'normal')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    const totalCancelledForOrder = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'cancelled')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${order.id}</td>
+                        <td>${order.supplier}</td>
+                        <td>${order.orderDate}</td>
+                        <td>${order.expectedArrivalDate}</td>
+                        <td>${order.quantity}</td>
+                        <td>${totalArrivedForOrder} (取消: ${totalCancelledForOrder})</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    `;
+                    orderTable.appendChild(row);
+                });
+            }
+            
+            // 更新到货详情表格
+            const arrivalTable = document.getElementById('statusArrivalTable');
+            arrivalTable.innerHTML = '';
+            
+            const productArrivals = arrivalData.filter(arrival => arrival.productId === productId);
+            
+            if (productArrivals.length === 0) {
+                arrivalTable.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #777;">暂无到货记录</td>
+                    </tr>
+                `;
+            } else {
+                productArrivals.forEach(arrival => {
+                    const statusText = arrival.status === 'cancelled' ? '订单取消' : '正常到货';
+                    const statusClass = arrival.status === 'cancelled' ? 'status-cancelled' : '';
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${arrival.id}</td>
+                        <td>${arrival.arrivalDate}</td>
+                        <td>${arrival.quantity}</td>
+                        <td>${arrival.quality}</td>
+                        <td>${arrival.inspector}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    `;
+                    arrivalTable.appendChild(row);
+                });
+            }
+            
+            // 更新出货详情表格
+            const shipmentTable = document.getElementById('statusShipmentTable');
+            shipmentTable.innerHTML = '';
+            
+            const productShipments = shipmentData.filter(shipment => shipment.productId === productId);
+            
+            if (productShipments.length === 0) {
+                shipmentTable.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #777;">暂无出货记录</td>
+                    </tr>
+                `;
+            } else {
+                productShipments.forEach(shipment => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${shipment.id}</td>
+                        <td>${shipment.customer}</td>
+                        <td>${shipment.date}</td>
+                        <td>${shipment.quantity}</td>
+                        <td>${shipment.type}</td>
+                    `;
+                    shipmentTable.appendChild(row);
+                });
+            }
+            
+            // 显示结果
+            document.getElementById('statusResults').style.display = 'block';
+            document.getElementById('statusNoResults').style.display = 'none';
+        }
+        
+        // 库存管理功能
+        document.getElementById('addInventoryBtn').addEventListener('click', () => {
+            document.getElementById('inventoryForm').style.display = 'block';
+            document.getElementById('addInventoryBtn').style.display = 'none';
+            resetInventoryForm();
+            currentState.isEditingInventory = false;
+            currentState.editingInventoryId = null;
+        });
+        
+        document.getElementById('cancelInventoryBtn').addEventListener('click', () => {
+            document.getElementById('inventoryForm').style.display = 'none';
+            document.getElementById('addInventoryBtn').style.display = 'inline-flex';
+            currentState.isEditingInventory = false;
+            currentState.editingInventoryId = null;
+        });
+        
+        document.getElementById('saveInventoryBtn').addEventListener('click', () => {
+            if (currentState.isEditingInventory) {
+                updateInventoryItem(currentState.editingInventoryId);
+            } else {
+                addInventoryItem();
+            }
+        });
+        
+        function addInventoryItem() {
+            const name = document.getElementById('inventoryName').value.trim();
+            const code = document.getElementById('inventoryCode').value.trim();
+            const ean = document.getElementById('inventoryean').value.trim();
+            const category = document.getElementById('inventoryCategory').value;
+            const quantity = parseInt(document.getElementById('inventoryQuantity').value);
+            const minStock = parseInt(document.getElementById('inventoryMinStock').value);
+            const price = parseFloat(document.getElementById('inventoryPrice').value);
+            const location = document.getElementById('inventoryLocation').value.trim();
+            const notes = document.getElementById('inventoryNotes').value.trim();
+            
+            if (!name || !code || !category || isNaN(quantity) || isNaN(minStock) || isNaN(price)) {
+                alert('请填写所有必填字段（带*号）！');
+                return;
+            }
+            
+            const existingItem = inventoryData.find(item => item.code === code);
+            if (existingItem) {
+                alert(`商品编码 "${code}" 已存在！`);
+                return;
+            }
+            
+            const inventoryItem = {
+                id: generateId('INV'),
+                name,
+                code,
+                ean,
+                category,
+                quantity,
+                minStock,
+                price,
+                location,
+                notes,
+                createdAt: new Date().toISOString()
+            };
+            
+            inventoryData.push(inventoryItem);
+            saveData();
+            
+            document.getElementById('inventoryForm').style.display = 'none';
+            document.getElementById('addInventoryBtn').style.display = 'inline-flex';
+            
+            showToast('库存商品添加成功！', 'success');
+        }
+        
+        function resetInventoryForm() {
+            document.getElementById('inventoryName').value = '';
+            document.getElementById('inventoryCode').value = '';
+            document.getElementById('inventoryean').value = '';
+            document.getElementById('inventoryCategory').value = '';
+            document.getElementById('inventoryQuantity').value = '';
+            document.getElementById('inventoryMinStock').value = '';
+            document.getElementById('inventoryPrice').value = '';
+            document.getElementById('inventoryLocation').value = '';
+            document.getElementById('inventoryNotes').value = '';
+        }
+        
+        function loadInventoryTable() {
+            // 现在使用分页版本的函数
+            setupInventorySearch();
+        }
+        
+        function editInventoryItem(id) {
+            const item = inventoryData.find(item => item.id === id);
+            if (!item) return;
+            
+            document.getElementById('inventoryName').value = item.name;
+            document.getElementById('inventoryCode').value = item.code;
+            document.getElementById('inventoryean').value = item.ean || '';
+            document.getElementById('inventoryCategory').value = item.category;
+            document.getElementById('inventoryQuantity').value = item.quantity;
+            document.getElementById('inventoryMinStock').value = item.minStock;
+            document.getElementById('inventoryPrice').value = item.price;
+            document.getElementById('inventoryLocation').value = item.location || '';
+            document.getElementById('inventoryNotes').value = item.notes || '';
+            
+            document.getElementById('inventoryForm').style.display = 'block';
+            document.getElementById('addInventoryBtn').style.display = 'none';
+            
+            currentState.isEditingInventory = true;
+            currentState.editingInventoryId = id;
+        }
+        
+        function updateInventoryItem(id) {
+            const itemIndex = inventoryData.findIndex(item => item.id === id);
+            if (itemIndex === -1) return;
+            
+            const name = document.getElementById('inventoryName').value.trim();
+            const code = document.getElementById('inventoryCode').value.trim();
+            const ean = document.getElementById('inventoryean').value.trim();
+            const category = document.getElementById('inventoryCategory').value;
+            const quantity = parseInt(document.getElementById('inventoryQuantity').value);
+            const minStock = parseInt(document.getElementById('inventoryMinStock').value);
+            const price = parseFloat(document.getElementById('inventoryPrice').value);
+            const location = document.getElementById('inventoryLocation').value.trim();
+            const notes = document.getElementById('inventoryNotes').value.trim();
+            
+            if (!name || !code || !category || isNaN(quantity) || isNaN(minStock) || isNaN(price)) {
+                alert('请填写所有必填字段！');
+                return;
+            }
+            
+            const existingItem = inventoryData.find(item => item.code === code && item.id !== id);
+            if (existingItem) {
+                alert(`商品编码 "${code}" 已被其他商品使用！`);
+                return;
+            }
+            
+            inventoryData[itemIndex] = {
+                ...inventoryData[itemIndex],
+                name,
+                code,
+                ean,
+                category,
+                quantity,
+                minStock,
+                price,
+                location,
+                notes,
+                updatedAt: new Date().toISOString()
+            };
+            
+            saveData();
+            
+            document.getElementById('inventoryForm').style.display = 'none';
+            document.getElementById('addInventoryBtn').style.display = 'inline-flex';
+            
+            currentState.isEditingInventory = false;
+            currentState.editingInventoryId = null;
+            
+            showToast('库存商品更新成功！', 'success');
+        }
+        
+        function deleteInventoryItem(id) {
+            if (!confirm('确定要删除这个库存商品吗？')) return;
+            
+            const hasOrder = orderData.some(order => order.productId === id);
+            if (hasOrder) {
+                alert('该商品存在订货记录，无法删除！');
+                return;
+            }
+            
+            inventoryData = inventoryData.filter(item => item.id !== id);
+            saveData();
+            
+            showToast('库存商品已删除', 'warning');
+        }
+        
+        // 订货管理功能 - 分页版本
+        function loadOrderPage(page = 1) {
+            const state = paginationState.order;
+            state.currentPage = page;
+            
+            const searchTerm = state.searchTerm;
+            const searchFields = ['productName', 'productCode', 'id', 'supplier'];
+            
+            const paginationResult = paginateData(orderData, page, PAGE_SIZE, searchTerm, searchFields);
+            state.filteredData = paginationResult.filteredData;
+            
+            const tableBody = document.getElementById('orderTableBody');
+            const emptyMessage = document.getElementById('emptyOrder');
+            
+            if (paginationResult.data.length === 0) {
+                tableBody.innerHTML = '';
+                emptyMessage.style.display = 'block';
+                document.getElementById('orderPagination').style.display = 'none';
+                return;
+            }
+            
+            emptyMessage.style.display = 'none';
+            document.getElementById('orderPagination').style.display = 'flex';
+            
+            tableBody.innerHTML = '';
+            
+            paginationResult.data.forEach(order => {
+                const statusText = getOrderStatusText(order.id);
+                const statusClass = getOrderStatusClass(order.id);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.id}</td>
+                    <td>${order.productName}</td>
+                    <td>${order.productCode}</td>
+                    <td>${order.supplier}</td>
+                    <td>${order.quantity}</td>
+                    <td>${order.orderDate}</td>
+                    <td>${order.expectedArrivalDate}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn delete" onclick="deleteOrderItem('${order.id}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            renderPagination(paginationResult, 'order', loadOrderPage);
+        }
+        
+        // 订货搜索功能
+        function setupOrderSearchFunction() {
+            const searchInput = document.getElementById('orderSearch');
+            const clearBtn = document.getElementById('clearOrderSearch');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                paginationState.order.searchTerm = searchTerm;
+                loadOrderPage(1);
+            });
+            
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                paginationState.order.searchTerm = '';
+                loadOrderPage(1);
+            });
+            
+            // 初始化加载第一页
+            loadOrderPage(1);
+        }
+        
+        document.getElementById('addOrderBtn').addEventListener('click', () => {
+            document.getElementById('orderForm').style.display = 'block';
+            document.getElementById('addOrderBtn').style.display = 'none';
+            resetOrderForm();
+        });
+        
+        document.getElementById('cancelOrderBtn').addEventListener('click', () => {
+            document.getElementById('orderForm').style.display = 'none';
+            document.getElementById('addOrderBtn').style.display = 'inline-flex';
+        });
+        
+        document.getElementById('saveOrderBtn').addEventListener('click', () => {
+            const productId = document.getElementById('orderProductId').value;
+            const quantity = parseInt(document.getElementById('orderQuantity').value);
+            const supplier = document.getElementById('orderSupplier').value.trim();
+            const orderDate = document.getElementById('orderDate').value;
+            const expectedArrivalDate = document.getElementById('expectedArrivalDate').value;
+            const price = parseFloat(document.getElementById('orderPrice').value);
+            const notes = document.getElementById('orderNotes').value.trim();
+            
+            if (!productId || isNaN(quantity) || !supplier || !orderDate || !expectedArrivalDate || isNaN(price)) {
+                alert('请填写所有必填字段（带*号）！');
+                return;
+            }
+            
+            const product = inventoryData.find(item => item.id === productId);
+            if (!product) {
+                alert('选择的商品不存在！');
+                return;
+            }
+            
+            const orderItem = {
+                id: generateId('ORD'),
+                productId,
+                productName: product.name,
+                productCode: product.code,
+                quantity,
+                supplier,
+                orderDate,
+                expectedArrivalDate,
+                price,
+                notes,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            
+            orderData.push(orderItem);
+            saveData();
+            
+            document.getElementById('orderForm').style.display = 'none';
+            document.getElementById('addOrderBtn').style.display = 'inline-flex';
+            
+            showToast('订货单添加成功！', 'success');
+        });
+        
+        function resetOrderForm() {
+            const today = new Date().toISOString().split('T')[0];
+            const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            document.getElementById('orderProductSearch').value = '';
+            document.getElementById('orderProductId').value = '';
+            document.getElementById('orderQuantity').value = '';
+            document.getElementById('orderSupplier').value = '';
+            document.getElementById('orderDate').value = today;
+            document.getElementById('expectedArrivalDate').value = nextWeek;
+            document.getElementById('orderPrice').value = '';
+            document.getElementById('orderNotes').value = '';
+        }
+        
+        function loadOrderTable() {
+            // 现在使用分页版本的函数
+            setupOrderSearchFunction();
+        }
+        
+        function deleteOrderItem(id) {
+            if (!confirm('确定要删除这个订货单吗？')) return;
+            
+            const hasArrival = arrivalData.some(arrival => arrival.orderId === id);
+            if (hasArrival) {
+                alert('该订货单已有到货记录，无法删除！');
+                return;
+            }
+            
+            orderData = orderData.filter(order => order.id !== id);
+            saveData();
+            
+            showToast('订货单已删除', 'warning');
+        }
+        
+        // 到货管理功能 - 分页版本
+        function loadArrivalPage(page = 1) {
+            const state = paginationState.arrival;
+            state.currentPage = page;
+            
+            const searchTerm = state.searchTerm;
+            const searchFields = ['productName', 'productCode', 'id', 'supplier'];
+            
+            const paginationResult = paginateData(arrivalData, page, PAGE_SIZE, searchTerm, searchFields);
+            state.filteredData = paginationResult.filteredData;
+            
+            const tableBody = document.getElementById('arrivalTableBody');
+            const emptyMessage = document.getElementById('emptyArrival');
+            
+            if (paginationResult.data.length === 0) {
+                tableBody.innerHTML = '';
+                emptyMessage.style.display = 'block';
+                document.getElementById('arrivalPagination').style.display = 'none';
+                return;
+            }
+            
+            emptyMessage.style.display = 'none';
+            document.getElementById('arrivalPagination').style.display = 'flex';
+            
+            tableBody.innerHTML = '';
+            
+            paginationResult.data.forEach(arrival => {
+                const statusText = arrival.status === 'cancelled' ? '订单取消' : '正常到货';
+                const statusClass = arrival.status === 'cancelled' ? 'status-cancelled' : '';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${arrival.id}</td>
+                    <td>${arrival.productName}</td>
+                    <td>${arrival.productCode}</td>
+                    <td>${arrival.supplier}</td>
+                    <td>${arrival.orderQuantity}</td>
+                    <td>${arrival.quantity}</td>
+                    <td>${arrival.arrivalDate}</td>
+                    <td>${arrival.quality}</td>
+                    <td>${arrival.inspector}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn edit" onclick="editArrivalItem('${arrival.id}')">编辑</button>
+                            <button class="action-btn delete" onclick="deleteArrivalItem('${arrival.id}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            renderPagination(paginationResult, 'arrival', loadArrivalPage);
+        }
+        
+        // 到货搜索功能
+        function setupArrivalSearch() {
+            const searchInput = document.getElementById('arrivalSearch');
+            const clearBtn = document.getElementById('clearArrivalSearch');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                paginationState.arrival.searchTerm = searchTerm;
+                loadArrivalPage(1);
+            });
+            
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                paginationState.arrival.searchTerm = '';
+                loadArrivalPage(1);
+            });
+            
+            // 初始化加载第一页
+            loadArrivalPage(1);
+        }
+        
+        // 到货管理功能
+        document.getElementById('addArrivalBtn').addEventListener('click', () => {
+            document.getElementById('arrivalForm').style.display = 'block';
+            document.getElementById('addArrivalBtn').style.display = 'none';
+            resetArrivalForm();
+            currentState.isEditingArrival = false;
+            currentState.editingArrivalId = null;
+        });
+        
+        document.getElementById('cancelArrivalBtn').addEventListener('click', () => {
+            document.getElementById('arrivalForm').style.display = 'none';
+            document.getElementById('addArrivalBtn').style.display = 'inline-flex';
+            currentState.isEditingArrival = false;
+            currentState.editingArrivalId = null;
+        });
+        
+        document.getElementById('saveArrivalBtn').addEventListener('click', () => {
+            if (currentState.isEditingArrival) {
+                updateArrivalItem(currentState.editingArrivalId);
+            } else {
+                addArrivalItem();
+            }
+        });
+        
+        function addArrivalItem() {
+            const orderId = document.getElementById('arrivalOrderId').value;
+            const quantity = parseInt(document.getElementById('arrivalQuantity').value);
+            const arrivalDate = document.getElementById('arrivalDate').value;
+            const quality = document.getElementById('arrivalQuality').value;
+            const inspector = document.getElementById('arrivalInspector').value.trim();
+            const status = document.getElementById('arrivalStatus').value;
+            const notes = document.getElementById('arrivalNotes').value.trim();
+            
+            if (!orderId || isNaN(quantity) || !arrivalDate || !inspector) {
+                alert('请填写所有必填字段（带*号）！');
+                return;
+            }
+            
+            if (quantity < 0) {
+                alert('到货数量不能为负数！');
+                return;
+            }
+            
+            const order = orderData.find(o => o.id === orderId);
+            if (!order) {
+                alert('选择的订货单不存在！');
+                return;
+            }
+            
+            const currentStatus = getOrderStatus(orderId);
+            
+            // 如果订单已经完成或取消，不能再添加记录
+            if (currentStatus === 'completed' || currentStatus === 'cancelled' || currentStatus === 'partial-completed') {
+                alert('该订单已经完成或取消，无法添加新的到货记录！');
+                return;
+            }
+            
+            // 计算已到货数量
+            const normalArrivalsTotal = arrivalData
+                .filter(arrival => arrival.orderId === orderId && arrival.status === 'normal')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            const cancelledArrivalsTotal = arrivalData
+                .filter(arrival => arrival.orderId === orderId && arrival.status === 'cancelled')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            const totalArrived = normalArrivalsTotal + cancelledArrivalsTotal;
+            
+            if (status === 'normal') {
+                // 正常到货
+                if (totalArrived + quantity > order.quantity) {
+                    alert(`到货数量超过订货数量！订货数量: ${order.quantity}个，已到货: ${totalArrived}个，本次到货: ${quantity}个`);
+                    return;
+                }
+                
+                // 更新库存数量
+                const inventoryItem = inventoryData.find(item => item.id === order.productId);
+                if (inventoryItem) {
+                    inventoryItem.quantity += quantity;
+                }
+            } else if (status === 'cancelled') {
+                // 订单取消
+                if (totalArrived + quantity > order.quantity) {
+                    alert(`取消数量超过订货数量！订货数量: ${order.quantity}个，已处理: ${totalArrived}个，本次取消: ${quantity}个`);
+                    return;
+                }
+                // 取消订单不更新库存
+            }
+            
+            const arrivalItem = {
+                id: generateId('ARR'),
+                orderId,
+                productId: order.productId,
+                productName: order.productName,
+                productCode: order.productCode,
+                supplier: order.supplier,
+                orderQuantity: order.quantity,
+                quantity,
+                arrivalDate,
+                quality,
+                inspector,
+                status: status,
+                notes,
+                createdAt: new Date().toISOString()
+            };
+            
+            arrivalData.push(arrivalItem);
+            saveData();
+            
+            document.getElementById('arrivalForm').style.display = 'none';
+            document.getElementById('addArrivalBtn').style.display = 'inline-flex';
+            
+            const statusText = status === 'cancelled' ? '订单取消' : '正常到货';
+            showToast(`${statusText}记录添加成功！`, 'success');
+        }
+        
+        function editArrivalItem(id) {
+            const arrival = arrivalData.find(item => item.id === id);
+            if (!arrival) return;
+            
+            // 查找对应的订货单
+            const order = orderData.find(o => o.id === arrival.orderId);
+            if (!order) return;
+            
+            // 回填表单数据
+            document.getElementById('arrivalOrderSearch').value = `${order.productName} (${order.id})`;
+            document.getElementById('arrivalOrderId').value = arrival.orderId;
+            document.getElementById('arrivalQuantity').value = arrival.quantity;
+            document.getElementById('arrivalDate').value = arrival.arrivalDate;
+            document.getElementById('arrivalQuality').value = arrival.quality;
+            document.getElementById('arrivalInspector').value = arrival.inspector;
+            document.getElementById('arrivalStatus').value = arrival.status;
+            document.getElementById('arrivalNotes').value = arrival.notes || '';
+            
+            document.getElementById('arrivalForm').style.display = 'block';
+            document.getElementById('addArrivalBtn').style.display = 'none';
+            
+            currentState.isEditingArrival = true;
+            currentState.editingArrivalId = id;
+        }
+        
+        function updateArrivalItem(id) {
+            const arrivalIndex = arrivalData.findIndex(item => item.id === id);
+            if (arrivalIndex === -1) return;
+            
+            const oldArrival = arrivalData[arrivalIndex];
+            const orderId = document.getElementById('arrivalOrderId').value;
+            const newQuantity = parseInt(document.getElementById('arrivalQuantity').value);
+            const arrivalDate = document.getElementById('arrivalDate').value;
+            const quality = document.getElementById('arrivalQuality').value;
+            const inspector = document.getElementById('arrivalInspector').value.trim();
+            const newStatus = document.getElementById('arrivalStatus').value;
+            const notes = document.getElementById('arrivalNotes').value.trim();
+            
+            if (!orderId || isNaN(newQuantity) || !arrivalDate || !inspector) {
+                alert('请填写所有必填字段（带*号）！');
+                return;
+            }
+            
+            if (newQuantity < 0) {
+                alert('到货数量不能为负数！');
+                return;
+            }
+            
+            const order = orderData.find(o => o.id === orderId);
+            if (!order) {
+                alert('选择的订货单不存在！');
+                return;
+            }
+            
+            // 计算其他到货记录的数量
+            const otherNormalArrivalsTotal = arrivalData
+                .filter(arrival => arrival.orderId === orderId && arrival.id !== id && arrival.status === 'normal')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            const otherCancelledArrivalsTotal = arrivalData
+                .filter(arrival => arrival.orderId === orderId && arrival.id !== id && arrival.status === 'cancelled')
+                .reduce((sum, arrival) => sum + arrival.quantity, 0);
+            
+            const otherTotalArrived = otherNormalArrivalsTotal + otherCancelledArrivalsTotal;
+            
+            if (newStatus === 'normal') {
+                // 正常到货
+                if (otherTotalArrived + newQuantity > order.quantity) {
+                    alert(`到货数量超过订货数量！订货数量: ${order.quantity}个，其他记录: ${otherTotalArrived}个，本次到货: ${newQuantity}个`);
+                    return;
+                }
+                
+                // 更新库存数量
+                const inventoryItem = inventoryData.find(item => item.id === order.productId);
+                if (inventoryItem) {
+                    if (oldArrival.status === 'normal') {
+                        // 原来就是正常到货，更新数量差
+                        inventoryItem.quantity = inventoryItem.quantity - oldArrival.quantity + newQuantity;
+                    } else {
+                        // 原来是取消，现在改为正常到货，增加数量
+                        inventoryItem.quantity += newQuantity;
+                    }
+                }
+            } else if (newStatus === 'cancelled') {
+                // 订单取消
+                if (otherTotalArrived + newQuantity > order.quantity) {
+                    alert(`取消数量超过订货数量！订货数量: ${order.quantity}个，其他记录: ${otherTotalArrived}个，本次取消: ${newQuantity}个`);
+                    return;
+                }
+                
+                // 更新库存数量
+                const inventoryItem = inventoryData.find(item => item.id === order.productId);
+                if (inventoryItem) {
+                    if (oldArrival.status === 'normal') {
+                        // 原来是正常到货，现在改为取消，减少库存
+                        inventoryItem.quantity -= oldArrival.quantity;
+                    }
+                    // 如果是取消状态，不更新库存
+                }
+            }
+            
+            // 更新到货记录
+            arrivalData[arrivalIndex] = {
+                ...oldArrival,
+                quantity: newQuantity,
+                arrivalDate,
+                quality,
+                inspector,
+                status: newStatus,
+                notes,
+                updatedAt: new Date().toISOString()
+            };
+            
+            saveData();
+            
+            document.getElementById('arrivalForm').style.display = 'none';
+            document.getElementById('addArrivalBtn').style.display = 'inline-flex';
+            
+            currentState.isEditingArrival = false;
+            currentState.editingArrivalId = null;
+            
+            const statusText = newStatus === 'cancelled' ? '订单取消' : '正常到货';
+            showToast(`${statusText}记录更新成功！`, 'success');
+        }
+        
+        function deleteArrivalItem(id) {
+            if (!confirm('确定要删除这个到货记录吗？此操作会根据记录类型相应调整库存数量！')) return;
+            
+            const arrival = arrivalData.find(item => item.id === id);
+            if (!arrival) return;
+            
+            // 如果是正常到货，减少库存数量
+            if (arrival.status === 'normal') {
+                const inventoryItem = inventoryData.find(item => item.id === arrival.productId);
+                if (inventoryItem) {
+                    inventoryItem.quantity -= arrival.quantity;
+                }
+            }
+            
+            arrivalData = arrivalData.filter(item => item.id !== id);
+            saveData();
+            
+            showToast('到货记录已删除', 'warning');
+        }
+        
+        function resetArrivalForm() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('arrivalOrderSearch').value = '';
+            document.getElementById('arrivalOrderId').value = '';
+            document.getElementById('arrivalQuantity').value = '';
+            document.getElementById('arrivalDate').value = today;
+            document.getElementById('arrivalQuality').value = '合格';
+            document.getElementById('arrivalInspector').value = '';
+            document.getElementById('arrivalStatus').value = 'normal';
+            document.getElementById('arrivalNotes').value = '';
+        }
+        
+        function loadArrivalTable() {
+            // 现在使用分页版本的函数
+            setupArrivalSearch();
+        }
+        
+        // 出货管理功能 - 分页版本
+        function loadShipmentPage(page = 1) {
+            const state = paginationState.shipment;
+            state.currentPage = page;
+            
+            const searchTerm = state.searchTerm;
+            const searchFields = ['productName', 'productCode', 'id', 'customer'];
+            
+            const paginationResult = paginateData(shipmentData, page, PAGE_SIZE, searchTerm, searchFields);
+            state.filteredData = paginationResult.filteredData;
+            
+            const tableBody = document.getElementById('shipmentTableBody');
+            const emptyMessage = document.getElementById('emptyShipment');
+            
+            if (paginationResult.data.length === 0) {
+                tableBody.innerHTML = '';
+                emptyMessage.style.display = 'block';
+                document.getElementById('shipmentPagination').style.display = 'none';
+                return;
+            }
+            
+            emptyMessage.style.display = 'none';
+            document.getElementById('shipmentPagination').style.display = 'flex';
+            
+            tableBody.innerHTML = '';
+            
+            paginationResult.data.forEach(shipment => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${shipment.id}</td>
+                    <td>${shipment.productName}</td>
+                    <td>${shipment.productCode}</td>
+                    <td>${shipment.customer}</td>
+                    <td>${shipment.quantity}</td>
+                    <td>${shipment.date}</td>
+                    <td>${shipment.type}</td>
+                    <td>¥${shipment.price.toFixed(2)}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn delete" onclick="deleteShipmentItem('${shipment.id}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            renderPagination(paginationResult, 'shipment', loadShipmentPage);
+        }
+        
+        // 出货搜索功能
+        function setupShipmentSearch() {
+            const searchInput = document.getElementById('shipmentSearch');
+            const clearBtn = document.getElementById('clearShipmentSearch');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                paginationState.shipment.searchTerm = searchTerm;
+                loadShipmentPage(1);
+            });
+            
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                paginationState.shipment.searchTerm = '';
+                loadShipmentPage(1);
+            });
+            
+            // 初始化加载第一页
+            loadShipmentPage(1);
+        }
+        
+        // 出货管理功能
+        document.getElementById('addShipmentBtn').addEventListener('click', () => {
+            document.getElementById('shipmentForm').style.display = 'block';
+            document.getElementById('addShipmentBtn').style.display = 'none';
+            resetShipmentForm();
+        });
+        
+        document.getElementById('cancelShipmentBtn').addEventListener('click', () => {
+            document.getElementById('shipmentForm').style.display = 'none';
+            document.getElementById('addShipmentBtn').style.display = 'inline-flex';
+        });
+        
+        document.getElementById('saveShipmentBtn').addEventListener('click', () => {
+            const productId = document.getElementById('shipmentProductId').value;
+            const quantity = parseInt(document.getElementById('shipmentQuantity').value);
+            const customer = document.getElementById('shipmentCustomer').value.trim();
+            const shipmentDate = document.getElementById('shipmentDate').value;
+            const price = parseFloat(document.getElementById('shipmentPrice').value);
+            const type = document.getElementById('shipmentType').value;
+            const notes = document.getElementById('shipmentNotes').value.trim();
+            
+            if (!productId || isNaN(quantity) || !customer || !shipmentDate || isNaN(price) || !type) {
+                alert('请填写所有必填字段（带*号）！');
+                return;
+            }
+            
+            const product = inventoryData.find(item => item.id === productId);
+            if (!product) {
+                alert('选择的商品不存在！');
+                return;
+            }
+            
+            if (product.quantity < quantity) {
+                alert(`库存不足！当前库存: ${product.quantity}个，出货数量: ${quantity}个`);
+                return;
+            }
+            
+            const shipmentItem = {
+                id: generateId('SHIP'),
+                productId,
+                productName: product.name,
+                productCode: product.code,
+                quantity,
+                customer,
+                date: shipmentDate,
+                price,
+                type,
+                notes,
+                createdAt: new Date().toISOString()
+            };
+            
+            shipmentData.push(shipmentItem);
+            
+            product.quantity -= quantity;
+            
+            saveData();
+            
+            document.getElementById('shipmentForm').style.display = 'none';
+            document.getElementById('addShipmentBtn').style.display = 'inline-flex';
+            
+            showToast('出货记录添加成功！', 'success');
+        });
+        
+        function resetShipmentForm() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('shipmentProductSearch').value = '';
+            document.getElementById('shipmentProductId').value = '';
+            document.getElementById('shipmentQuantity').value = '';
+            document.getElementById('shipmentCustomer').value = '';
+            document.getElementById('shipmentDate').value = today;
+            document.getElementById('shipmentPrice').value = '';
+            document.getElementById('shipmentType').value = '';
+            document.getElementById('shipmentNotes').value = '';
+        }
+        
+        function loadShipmentTable() {
+            // 现在使用分页版本的函数
+            setupShipmentSearch();
+        }
+        
+        function deleteShipmentItem(id) {
+            if (!confirm('确定要删除这个出货记录吗？')) return;
+            
+            const shipment = shipmentData.find(item => item.id === id);
+            if (!shipment) return;
+            
+            const inventoryItem = inventoryData.find(item => item.id === shipment.productId);
+            if (inventoryItem) {
+                inventoryItem.quantity += shipment.quantity;
+            }
+            
+            shipmentData = shipmentData.filter(item => item.id !== id);
+            saveData();
+            
+            showToast('出货记录已删除', 'warning');
+        }
+        
+        // 未到货订单功能 - 分页版本
+        function loadPendingPage(page = 1) {
+            const state = paginationState.pending;
+            state.currentPage = page;
+            
+            const searchTerm = state.searchTerm;
+            
+            // 只显示未完成的订单
+            let pendingOrders = orderData.filter(order => {
+                const status = getOrderStatus(order.id);
+                return status !== 'completed' && status !== 'cancelled' && status !== 'partial-completed';
+            });
+            
+            // 如果有搜索词，进行过滤
+            if (searchTerm && searchTerm.trim() !== '') {
+                const term = searchTerm.toLowerCase().trim();
+                pendingOrders = pendingOrders.filter(order => {
+                    return order.productName.toLowerCase().includes(term) ||
+                           order.productCode.toLowerCase().includes(term) ||
+                           order.id.toLowerCase().includes(term) ||
+                           order.supplier.toLowerCase().includes(term);
+                });
+            }
+            
+            const paginationResult = paginateData(pendingOrders, page, PAGE_SIZE);
+            state.filteredData = paginationResult.filteredData;
+            
+            const tableBody = document.getElementById('pendingTableBody');
+            const emptyMessage = document.getElementById('emptyPending');
+            
+            if (paginationResult.data.length === 0) {
+                tableBody.innerHTML = '';
+                emptyMessage.style.display = 'block';
+                document.getElementById('pendingPagination').style.display = 'none';
+                return;
+            }
+            
+            emptyMessage.style.display = 'none';
+            document.getElementById('pendingPagination').style.display = 'flex';
+            
+            tableBody.innerHTML = '';
+            
+            paginationResult.data.forEach(order => {
+                const statusText = getOrderStatusText(order.id);
+                const statusClass = getOrderStatusClass(order.id);
+                
+                const normalArrived = arrivalData
+                    .filter(arrival => arrival.orderId === order.id && arrival.status === 'normal')
+                    .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                
+                const cancelledArrived = arrivalData
+                    .filter(arrival => arrival.orderId === order.id && arrival.status === 'cancelled')
+                    .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                
+                const totalArrived = normalArrived + cancelledArrived;
+                const remaining = order.quantity - totalArrived;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.id}</td>
+                    <td>${order.productName}</td>
+                    <td>${order.productCode}</td>
+                    <td>${order.supplier}</td>
+                    <td>${order.quantity}</td>
+                    <td>${order.orderDate}</td>
+                    <td>${order.expectedArrivalDate}</td>
+                    <td>${normalArrived} (取消: ${cancelledArrived})</td>
+                    <td>${remaining}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            renderPagination(paginationResult, 'pending', loadPendingPage);
+        }
+        
+        // 未到货订单搜索功能
+        function setupPendingSearch() {
+            const searchInput = document.getElementById('pendingSearch');
+            const clearBtn = document.getElementById('clearPendingSearch');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                paginationState.pending.searchTerm = searchTerm;
+                loadPendingPage(1);
+            });
+            
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                paginationState.pending.searchTerm = '';
+                loadPendingPage(1);
+            });
+            
+            // 初始化加载第一页
+            loadPendingPage(1);
+        }
+        
+        function loadPendingTable() {
+            // 现在使用分页版本的函数
+            setupPendingSearch();
+        }
+        
+        document.getElementById('refreshPendingBtn').addEventListener('click', loadPendingTable);
+        
+        // 导出未到货订单功能
+        document.getElementById('exportPendingBtn').addEventListener('click', function() {
+            try {
+                // 只获取未完成的订单
+                const pendingOrders = orderData.filter(order => {
+                    const status = getOrderStatus(order.id);
+                    return status !== 'completed' && status !== 'cancelled' && status !== 'partial-completed';
+                });
+                
+                if (pendingOrders.length === 0) {
+                    showToast('没有未到货订单可导出', 'warning');
+                    return;
+                }
+                
+                const wb = XLSX.utils.book_new();
+                const wsData = [
+                    ['订货单号', '商品名称', '商品编码', '供应商', '订货数量', '订货日期', '预计到货日期', '已到货数量', '取消数量', '剩余数量', '状态']
+                ];
+                
+                pendingOrders.forEach(order => {
+                    const statusText = getOrderStatusText(order.id);
+                    
+                    const normalArrived = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'normal')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    const cancelledArrived = arrivalData
+                        .filter(arrival => arrival.orderId === order.id && arrival.status === 'cancelled')
+                        .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                    
+                    const totalArrived = normalArrived + cancelledArrived;
+                    const remaining = order.quantity - totalArrived;
+                    
+                    wsData.push([
+                        order.id,
+                        order.productName,
+                        order.productCode,
+                        order.supplier,
+                        order.quantity,
+                        order.orderDate,
+                        order.expectedArrivalDate,
+                        normalArrived,
+                        cancelledArrived,
+                        remaining,
+                        statusText
+                    ]);
+                });
+                
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                XLSX.utils.book_append_sheet(wb, ws, '未到货订单');
+                
+                const fileName = `未到货订单_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+                
+                XLSX.writeFile(wb, fileName);
+                
+                showDownloadNotification(`未到货订单Excel文件 "${fileName}" 下载中...`);
+                
+            } catch (error) {
+                console.error('导出未到货订单失败:', error);
+                showToast('导出未到货订单失败，请重试', 'error');
+            }
+        });
+        
+        // 清空数据功能
+        document.getElementById('clearDataBtn').addEventListener('click', () => {
+            if (!confirm('确定要清空所有数据吗？此操作不可恢复！')) return;
+            
+            localStorage.clear();
+            inventoryData = [];
+            orderData = [];
+            arrivalData = [];
+            shipmentData = [];
+            currentArchiveName = '初始版本';
+            lastArchiveTimestamp = null;
+            currentState = {
+                isEditingInventory: false,
+                editingInventoryId: null,
+                isEditingArrival: false,
+                editingArrivalId: null
+            };
+            
+            // 重置分页状态
+            Object.keys(paginationState).forEach(key => {
+                paginationState[key] = {
+                    currentPage: 1,
+                    searchTerm: '',
+                    filteredData: null
+                };
+            });
+            
+            saveData();
+            
+            showToast('所有数据已清空！', 'warning');
+        });
+        
+        // 加载所有表格
+        function loadAllTables() {
+            setupInventorySearch();
+            setupOrderSearchFunction();
+            setupArrivalSearch();
+            setupShipmentSearch();
+            setupPendingSearch();
+        }
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            document.getElementById('orderDate').value = today;
+            document.getElementById('expectedArrivalDate').value = nextWeek;
+            document.getElementById('arrivalDate').value = today;
+            document.getElementById('shipmentDate').value = today;
+            
+            // 存档功能
+            document.getElementById('saveArchiveBtn').addEventListener('click', saveArchive);
+            document.getElementById('loadArchiveBtn').addEventListener('click', () => {
+                document.getElementById('archiveFileInput').click();
+            });
+            
+            // 修改存档加载功能
+document.getElementById('archiveFileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            if (data.inventoryData) inventoryData = data.inventoryData;
+            if (data.orderData) orderData = data.orderData;
+            if (data.arrivalData) arrivalData = data.arrivalData;
+            if (data.shipmentData) shipmentData = data.shipmentData;
+            
+            const timestamp = data.timestamp || new Date().toISOString();
+            const name = data.name || '导入的存档';
+            const description = data.description || '';
+            
+            // 更新存档信息
+            currentArchiveName = name;
+            currentArchiveDescription = description;
+            lastArchiveTimestamp = timestamp;
+            
+            localStorage.setItem('lastArchiveTimestamp', lastArchiveTimestamp);
+            localStorage.setItem('currentArchiveDescription', currentArchiveDescription);
+            
+            // 重置分页状态
+            Object.keys(paginationState).forEach(key => {
+                paginationState[key] = {
+                    currentPage: 1,
+                    searchTerm: '',
+                    filteredData: null
+                };
+            });
+            
+            saveData();
+            
+            showToast(`已加载存档：${name}`, 'info');
+        } catch (error) {
+            showToast('存档文件格式错误，加载失败', 'error');
+        }
+    };
+    reader.readAsText(file);
+    
+    e.target.value = '';
+});
+            
+            document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+            document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
+            
+            // CSV导入功能
+            document.getElementById('downloadCsvTemplateBtn').addEventListener('click', downloadCsvTemplate);
+            document.getElementById('importCsvBtn').addEventListener('click', importCsv);
+            document.getElementById('csvImportFile').addEventListener('change', handleCsvImport);
+            
+            // 状态一览搜索功能
+            document.getElementById('statusSearchBtn').addEventListener('click', searchProductStatus);
+            document.getElementById('statusSearch').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    searchProductStatus();
+                }
+            });
+            
+            setupProductSearch('orderProductSearch', 'orderProductResults', 'orderProductId', function(product) {
+                document.getElementById('orderPrice').value = product.price;
+            });
+            
+            setupOrderSearch('arrivalOrderSearch', 'arrivalOrderResults', 'arrivalOrderId', function(order) {
+                const statusText = getOrderStatusText(order.id);
+                const normalArrived = arrivalData
+                    .filter(arrival => arrival.orderId === order.id && arrival.status === 'normal')
+                    .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                
+                const cancelledArrived = arrivalData
+                    .filter(arrival => arrival.orderId === order.id && arrival.status === 'cancelled')
+                    .reduce((sum, arrival) => sum + arrival.quantity, 0);
+                
+                const remaining = order.quantity - normalArrived - cancelledArrived;
+                alert(`订货信息：\n商品：${order.productName}\n订货数量：${order.quantity}个\n正常到货：${normalArrived}个\n取消数量：${cancelledArrived}个\n剩余：${remaining}个\n状态：${statusText}`);
+            });
+            
+            setupProductSearch('shipmentProductSearch', 'shipmentProductResults', 'shipmentProductId', function(product) {
+                document.getElementById('shipmentPrice').value = product.price;
+            });
+            
+            // 新增设置功能初始化
+            // 打开设置模态框
+            document.getElementById('settingsCard').addEventListener('click', () => {
+                document.getElementById('settingsModal').classList.add('active');
+                loadSettings();
+            });
+            
+            // 关闭设置模态框
+            document.getElementById('closeSettings').addEventListener('click', () => {
+                document.getElementById('settingsModal').classList.remove('active');
+            });
+            
+            // 点击模态框背景关闭
+            document.getElementById('settingsModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('settingsModal')) {
+                    document.getElementById('settingsModal').classList.remove('active');
+                }
+            });
+            
+            // 添加商品类别
+            document.getElementById('addCategoryBtn').addEventListener('click', () => {
+                addSettingItem('categories', 'newCategoryInput');
+            });
+            
+            document.getElementById('newCategoryInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    addSettingItem('categories', 'newCategoryInput');
+                }
+            });
+            
+            // 添加存放位置
+            document.getElementById('addLocationBtn').addEventListener('click', () => {
+                addSettingItem('locations', 'newLocationInput');
+            });
+            
+            document.getElementById('newLocationInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    addSettingItem('locations', 'newLocationInput');
+                }
+            });
+            
+            // 添加供应商
+            document.getElementById('addSupplierBtn').addEventListener('click', () => {
+                addSettingItem('suppliers', 'newSupplierInput');
+            });
+            
+            document.getElementById('newSupplierInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    addSettingItem('suppliers', 'newSupplierInput');
+                }
+            });
+            
+            // 添加检验员
+            document.getElementById('addInspectorBtn').addEventListener('click', () => {
+                addSettingItem('inspectors', 'newInspectorInput');
+            });
+            
+            document.getElementById('newInspectorInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    addSettingItem('inspectors', 'newInspectorInput');
+                }
+            });
+            
+            // 添加客户名称
+            document.getElementById('addCustomerBtn').addEventListener('click', () => {
+                addSettingItem('customers', 'newCustomerInput');
+            });
+            
+            document.getElementById('newCustomerInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    addSettingItem('customers', 'newCustomerInput');
+                }
+            });
+            
+            // 添加出货方式
+            document.getElementById('addShipmentTypeBtn').addEventListener('click', () => {
+                addSettingItem('shipmentTypes', 'newShipmentTypeInput');
+            });
+            
+            document.getElementById('newShipmentTypeInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    addSettingItem('shipmentTypes', 'newShipmentTypeInput');
+                }
+            });
+            
+            // 保存设置
+            document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+                saveData();
+                document.getElementById('settingsModal').classList.remove('active');
+                showToast('设置已保存', 'success');
+            });
+            
+            // 初始化更新选择框选项
+            updateSelectOptions();
+            loadAllTables();
+            updateStats();
+            updateArchiveStatus();
+            loadSettings(); 
+        });
+    </script>
+</body>
+</html>
